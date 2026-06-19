@@ -33,8 +33,6 @@ const generateCode = () => {
 const Payment = () => {
   const { items, totalPrice, clearCart } = useCart();
   const [method, setMethod] = useState<PaymentMethod>("mobile_money");
-  const [mobileProvider, setMobileProvider] = useState<MobileProvider>("mtn");
-  const [cardType, setCardType] = useState<CardType>("visa");
   const [processing, setProcessing] = useState(false);
   const [paystackLoading, setPaystackLoading] = useState(false);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
@@ -93,14 +91,7 @@ const Payment = () => {
   };
 
   // Form fields
-  const [phone, setPhone] = useState("");
-  const [cardNumber, setCardNumber] = useState("");
-  const [expiry, setExpiry] = useState("");
-  const [cvv, setCvv] = useState("");
-  const [cardName, setCardName] = useState("");
   const [address, setAddress] = useState("");
-  const [senderName, setSenderName] = useState("");
-  const [senderBank, setSenderBank] = useState("");
 
   const getMethodLabel = (m: PaymentMethod) => {
     const map: Record<PaymentMethod, string> = {
@@ -115,24 +106,18 @@ const Payment = () => {
 
   const getPaymentDetails = (): Record<string, string> => {
     switch (method) {
-      case "mobile_money":
-        return { Provider: mobileProvider === "mtn" ? "MTN MoMo" : mobileProvider === "vodafone" ? "Vodafone Cash" : "AirtelTigo Money", Phone: phone };
-      case "card":
-        return { "Card Type": cardType.charAt(0).toUpperCase() + cardType.slice(1), "Card Holder": cardName, "Card Number": `**** **** **** ${cardNumber.slice(-4) || "****"}` };
-      case "bank_transfer":
-        return { "Sender Name": senderName, "Sender Bank": senderBank, "Recipient Bank": "Ghana Commercial Bank", "Account": "1234567890" };
       case "pay_on_delivery":
         return { "Delivery Address": address };
-      case "paystack":
+      default:
         return { Provider: "Paystack", Channels: "Card, MoMo, Bank" };
     }
   };
 
   const handleSubmit = async () => {
-    if (method === "paystack") { await handlePaystack(); return; }
-    if (method === "mobile_money" && !phone) { toast.error("Please enter your phone number."); return; }
-    if (method === "card" && (!cardNumber || !expiry || !cvv || !cardName)) { toast.error("Please fill in all card details."); return; }
-    if (method === "bank_transfer" && (!senderName || !senderBank)) { toast.error("Please enter your bank details."); return; }
+    if (method !== "pay_on_delivery") { 
+      await handlePaystack(); 
+      return; 
+    }
     if (method === "pay_on_delivery" && !address) { toast.error("Please enter your delivery address."); return; }
 
     setProcessing(true);
@@ -284,81 +269,26 @@ const Payment = () => {
               </div>
 
               {method === m.id && m.id === "mobile_money" && (
-                <div className="mt-4 ml-13 space-y-4" onClick={(e) => e.stopPropagation()}>
-                  <RadioGroup value={mobileProvider} onValueChange={(v) => setMobileProvider(v as MobileProvider)} className="flex gap-4 flex-wrap">
-                    {[
-                      { id: "mtn", label: "MTN MoMo", color: "bg-yellow-500" },
-                      { id: "vodafone", label: "Vodafone Cash", color: "bg-red-500" },
-                      { id: "airteltigo", label: "AirtelTigo Money", color: "bg-blue-500" },
-                    ].map((p) => (
-                      <Label key={p.id} className={`flex items-center gap-2 cursor-pointer rounded-lg border px-4 py-3 transition-all ${mobileProvider === p.id ? "border-primary bg-primary/5" : "border-border"}`}>
-                        <RadioGroupItem value={p.id} />
-                        <span className={`h-3 w-3 rounded-full ${p.color}`} />
-                        <span className="text-sm font-medium text-foreground">{p.label}</span>
-                      </Label>
-                    ))}
-                  </RadioGroup>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone" className="text-sm text-muted-foreground">Phone Number</Label>
-                    <Input id="phone" placeholder="0XX XXX XXXX" className="max-w-xs" value={phone} onChange={(e) => setPhone(e.target.value)} />
-                  </div>
+                <div className="mt-4 ml-13 space-y-2" onClick={(e) => e.stopPropagation()}>
+                  <p className="text-sm text-muted-foreground italic">
+                    You'll be redirected to Paystack's secure checkout for Mobile Money payment. Tap "Confirm Payment" to continue.
+                  </p>
                 </div>
               )}
 
               {method === m.id && m.id === "card" && (
-                <div className="mt-4 ml-13 space-y-4" onClick={(e) => e.stopPropagation()}>
-                  <RadioGroup value={cardType} onValueChange={(v) => setCardType(v as CardType)} className="flex gap-4 flex-wrap">
-                    {[
-                      { id: "visa", label: "Visa" },
-                      { id: "mastercard", label: "MasterCard" },
-                      { id: "verve", label: "Verve" },
-                    ].map((c) => (
-                      <Label key={c.id} className={`flex items-center gap-2 cursor-pointer rounded-lg border px-4 py-3 transition-all ${cardType === c.id ? "border-primary bg-primary/5" : "border-border"}`}>
-                        <RadioGroupItem value={c.id} />
-                        <span className="text-sm font-medium text-foreground">{c.label}</span>
-                      </Label>
-                    ))}
-                  </RadioGroup>
-                  <div className="grid gap-4 max-w-md">
-                    <div className="space-y-2">
-                      <Label htmlFor="cardNumber" className="text-sm text-muted-foreground">Card Number</Label>
-                      <Input id="cardNumber" placeholder="•••• •••• •••• ••••" value={cardNumber} onChange={(e) => setCardNumber(e.target.value)} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="expiry" className="text-sm text-muted-foreground">Expiry Date</Label>
-                        <Input id="expiry" placeholder="MM/YY" value={expiry} onChange={(e) => setExpiry(e.target.value)} />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="cvv" className="text-sm text-muted-foreground">CVV</Label>
-                        <Input id="cvv" placeholder="•••" value={cvv} onChange={(e) => setCvv(e.target.value)} />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="cardName" className="text-sm text-muted-foreground">Name on Card</Label>
-                      <Input id="cardName" placeholder="Full name" value={cardName} onChange={(e) => setCardName(e.target.value)} />
-                    </div>
-                  </div>
+                <div className="mt-4 ml-13 space-y-2" onClick={(e) => e.stopPropagation()}>
+                  <p className="text-sm text-muted-foreground italic">
+                    You'll be redirected to Paystack's secure checkout. Your card details are safely encrypted. Tap "Confirm Payment" to continue.
+                  </p>
                 </div>
               )}
 
               {method === m.id && m.id === "bank_transfer" && (
-                <div className="mt-4 ml-13 space-y-4" onClick={(e) => e.stopPropagation()}>
-                  <div className="rounded-lg bg-muted/50 p-4 text-sm space-y-1">
-                    <p className="font-medium text-foreground">Transfer To:</p>
-                    <p className="text-muted-foreground">Bank: <span className="text-foreground">Ghana Commercial Bank</span></p>
-                    <p className="text-muted-foreground">Account Name: <span className="text-foreground">ArtGallery Ltd</span></p>
-                    <p className="text-muted-foreground">Account Number: <span className="text-foreground">1234567890</span></p>
-                    <p className="text-muted-foreground">Branch: <span className="text-foreground">Accra Main</span></p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="senderName" className="text-sm text-muted-foreground">Your Name (Sender)</Label>
-                    <Input id="senderName" placeholder="Full name" value={senderName} onChange={(e) => setSenderName(e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="senderBank" className="text-sm text-muted-foreground">Your Bank Name</Label>
-                    <Input id="senderBank" placeholder="e.g. Ecobank, Fidelity..." value={senderBank} onChange={(e) => setSenderBank(e.target.value)} />
-                  </div>
+                <div className="mt-4 ml-13 space-y-2" onClick={(e) => e.stopPropagation()}>
+                  <p className="text-sm text-muted-foreground italic">
+                    You'll be redirected to Paystack to complete your secure bank transfer. Tap "Confirm Payment" to continue.
+                  </p>
                 </div>
               )}
 
