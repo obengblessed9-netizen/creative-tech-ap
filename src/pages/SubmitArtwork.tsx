@@ -114,6 +114,7 @@ const SubmitArtwork = () => {
 
       const { error } = await supabase.from("artworks").insert({
         title,
+        artist_id: user.id,
         price: parseFloat(price),
         medium: medium || null,
         category: category || null,
