@@ -1,0 +1,1 @@
+UPDATE public.live_streams SET status = 'ended', ended_at = COALESCE(ended_at, now()) WHERE status != 'ended';

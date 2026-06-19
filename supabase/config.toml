@@ -1,0 +1,13 @@
+project_id = "qihbotixvrmabjblxgvc"
+
+[functions.link-preview]
+verify_jwt = false
+
+[functions.suggest-background]
+verify_jwt = false
+
+[functions.paystack-webhook]
+verify_jwt = false
+
+[functions.paystack-verify]
+verify_jwt = false
