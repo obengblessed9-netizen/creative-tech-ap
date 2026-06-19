@@ -3,7 +3,6 @@ import { Loader2, MailCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -254,8 +253,9 @@ const Auth = () => {
     toast.info("Connecting to Google Auth...", {
       duration: 5000,
     });
-    const { error } = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin }
     });
     if (error) {
       const m = error.message || "Google sign-in failed";
@@ -279,8 +279,9 @@ const Auth = () => {
     toast.info("Connecting to Apple Auth...", {
       duration: 5000,
     });
-    const { error } = await lovable.auth.signInWithOAuth("apple", {
-      redirect_uri: window.location.origin,
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "apple",
+      options: { redirectTo: window.location.origin }
     });
     if (error) {
       const m = error.message || "Apple sign-in failed";
