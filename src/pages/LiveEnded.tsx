@@ -7,7 +7,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Search, Eye, Clock, History as HistoryIcon } from "lucide-react";
+import { ArrowLeft, Search, Eye, Clock, History as HistoryIcon, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 interface EndedStream {
   id: string;
@@ -36,6 +37,22 @@ const LiveEnded = () => {
   const [organizers, setOrganizers] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDeleteAllEnded = async () => {
+    if (!window.confirm("Are you sure you want to delete all ended meetings? This cannot be undone.")) return;
+    setDeleting(true);
+    try {
+      const { error } = await supabase.from("live_streams").delete().eq("status", "ended");
+      if (error) throw error;
+      setStreams([]);
+      toast.success("All ended meetings have been deleted");
+    } catch (e: any) {
+      toast.error(e.message || "Failed to delete meetings");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -93,9 +110,19 @@ const LiveEnded = () => {
                 Browse past live broadcasts with summaries and ended times.
               </p>
             </div>
-            <Button onClick={() => navigate("/live?start=new")} className="bg-gradient-gold text-primary-foreground">
-              Start New Live
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                onClick={handleDeleteAllEnded} 
+                variant="destructive"
+                disabled={deleting || streams.length === 0}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                {deleting ? "Deleting..." : "Delete Meetings"}
+              </Button>
+              <Button onClick={() => navigate("/live?start=new")} className="bg-gradient-gold text-primary-foreground">
+                Start New Live
+              </Button>
+            </div>
           </div>
 
           <div className="relative mb-4">
