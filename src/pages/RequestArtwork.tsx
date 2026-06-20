@@ -45,12 +45,6 @@ type Tool = "brush" | "eraser" | "line" | "rect" | "ellipse" | "text" | "fill";
 const CATEGORIES: { label: string; tools: Tool[] }[] = [
   { label: "🎨 Painting", tools: ["brush", "fill", "ellipse", "rect", "line", "eraser"] },
   { label: "✏️ Drawing", tools: ["brush", "eraser", "line", "text"] },
-  { label: "💻 Digital Art", tools: ["brush", "eraser", "line", "rect", "ellipse", "text", "fill"] },
-  { label: "🗿 Sculpture", tools: ["brush", "line", "rect", "ellipse", "eraser"] },
-  { label: "🧵 Textile", tools: ["brush", "fill", "text", "eraser"] },
-  { label: "🖌️ Calligraphy", tools: ["brush", "text", "eraser"] },
-  { label: "🧩 Graphic Design", tools: ["brush", "eraser", "line", "rect", "ellipse", "text", "fill"] },
-  { label: "🖼️ Print", tools: ["brush", "fill", "rect", "ellipse", "text", "eraser"] },
 ];
 
 const CANVAS_W = 1200;
