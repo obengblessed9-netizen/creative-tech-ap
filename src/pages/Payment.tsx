@@ -75,7 +75,7 @@ const Payment = () => {
           amount: totalPrice,
           currency: "GHS",
           callback_url: `${window.location.origin}/payment`,
-          metadata: { items: items.map((i) => ({ id: i.artwork?.id, title: i.artwork?.title })) },
+          metadata: { items: items.map((i) => ({ id: i.artwork?.id, title: i.artwork?.title })), mobile_number: "0551234567" },
         },
       });
       if (error || !data?.authorization_url) {

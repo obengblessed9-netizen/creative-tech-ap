@@ -7,13 +7,13 @@ import { useCart } from "@/contexts/CartContext";
 import { supabase } from "@/integrations/supabase/client";
 import CartDrawer from "@/components/CartDrawer";
 import NotificationsBell from "@/components/NotificationsBell";
+import { ModeToggle } from "@/components/ModeToggle";
 
 const navLinks = [
   { label: "Home", path: "/" },
   { label: "Gallery", path: "/gallery" },
   { label: "Artists", path: "/artists" },
   { label: "Live", path: "/live" },
-  { label: "AI Detect", path: "/art-detection" },
   { label: "Payment", path: "/payment" },
 ];
 
@@ -100,6 +100,7 @@ const Navbar = () => {
                 </Link>
               </Button>
             )}
+            <ModeToggle />
             {user && <NotificationsBell />}
             {user && (
               <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-primary" onClick={() => setCartOpen(true)}>
@@ -140,6 +141,7 @@ const Navbar = () => {
                 </Link>
               </Button>
             )}
+            <ModeToggle />
             {user && (
               <Button variant="ghost" size="icon" className="relative text-muted-foreground" onClick={() => setCartOpen(true)}>
                 <ShoppingBag className="h-5 w-5" />

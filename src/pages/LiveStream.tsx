@@ -471,9 +471,9 @@ const LiveStream = () => {
     }
   };
 
-  // Host: load + subscribe to viewers
+  // Load + subscribe to viewers for everyone
   useEffect(() => {
-    if (!isHost || !stream?.id) return;
+    if (!stream?.id) return;
     supabase
       .from("live_stream_viewers")
       .select("*")
@@ -833,67 +833,67 @@ const LiveStream = () => {
                   <Button onClick={endStream} variant="destructive">End Stream</Button>
                 </div>
 
-                {/* Host viewer panel */}
-                <Card className="mt-4 p-4 bg-card border-border">
-                  <div className="flex items-center gap-2 border-b border-border pb-2">
-                    <Users className="h-5 w-5 text-primary" />
-                    <h3 className="font-display text-lg font-semibold text-foreground">Viewers ({viewers.filter((v) => !v.left_at).length} active)</h3>
-                  </div>
-                  <ul className="mt-3 max-h-64 overflow-y-auto divide-y divide-border">
-                    {viewers.length === 0 && <li className="text-sm text-muted-foreground py-2">No viewers yet.</li>}
-                    {viewers.filter((v) => !blockedIds.has(v.user_id)).map((v) => (
-                      <li key={v.id} className="flex items-center justify-between gap-2 py-2 text-sm">
-                        <div className="min-w-0">
-                          <p className="text-foreground font-medium truncate">{v.display_name || v.user_id.slice(0, 8)}</p>
-                          <p className="text-xs text-muted-foreground">
-                            joined {new Date(v.joined_at).toLocaleTimeString()}
-                            {v.left_at && ` · left ${new Date(v.left_at).toLocaleTimeString()}`}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <span className={`text-xs px-2 py-0.5 rounded ${v.left_at ? "bg-secondary text-muted-foreground" : "bg-primary/10 text-primary"}`}>
-                            {v.left_at ? "Left" : "Live"}
-                          </span>
-                          {v.user_id !== user?.id && (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <button className="text-muted-foreground hover:text-foreground p-1">
-                                  <MoreVertical className="h-3.5 w-3.5" />
-                                </button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="bg-card border-border">
-                                <DropdownMenuItem onClick={() => setReportTarget({ userId: v.user_id, reason: "" })}>
-                                  <Flag className="h-4 w-4 mr-2" /> Report
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                {blockedIds.has(v.user_id) ? (
-                                  <DropdownMenuItem onClick={() => unblockUser(v.user_id)}>
-                                    <Ban className="h-4 w-4 mr-2" /> Unblock
-                                  </DropdownMenuItem>
-                                ) : (
-                                  <DropdownMenuItem onClick={() => blockUser(v.user_id)} className="text-destructive focus:text-destructive">
-                                    <Ban className="h-4 w-4 mr-2" /> Block
-                                  </DropdownMenuItem>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          )}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                  {blockedIds.size > 0 && (
-                    <p className="mt-2 text-[11px] text-muted-foreground italic pt-2 border-t border-border">
-                      {blockedIds.size} blocked user(s) hidden.{" "}
-                      <button className="underline hover:text-foreground" onClick={() => persistBlocks(new Set())}>
-                        Unblock all
-                      </button>
-                    </p>
-                  )}
-                </Card>
-
               </>
             )}
+
+            {/* Viewer panel (visible to everyone) */}
+            <Card className="mt-4 p-4 bg-card border-border">
+              <div className="flex items-center gap-2 border-b border-border pb-2">
+                <Users className="h-5 w-5 text-primary" />
+                <h3 className="font-display text-lg font-semibold text-foreground">Viewers ({viewers.filter((v) => !v.left_at).length} active)</h3>
+              </div>
+              <ul className="mt-3 max-h-64 overflow-y-auto divide-y divide-border">
+                {viewers.length === 0 && <li className="text-sm text-muted-foreground py-2">No viewers yet.</li>}
+                {viewers.filter((v) => !blockedIds.has(v.user_id)).map((v) => (
+                  <li key={v.id} className="flex items-center justify-between gap-2 py-2 text-sm">
+                    <div className="min-w-0">
+                      <p className="text-foreground font-medium truncate">{v.display_name || v.user_id.slice(0, 8)}</p>
+                      <p className="text-xs text-muted-foreground">
+                        joined {new Date(v.joined_at).toLocaleTimeString()}
+                        {v.left_at && ` · left ${new Date(v.left_at).toLocaleTimeString()}`}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className={`text-xs px-2 py-0.5 rounded ${v.left_at ? "bg-secondary text-muted-foreground" : "bg-primary/10 text-primary"}`}>
+                        {v.left_at ? "Left" : "Live"}
+                      </span>
+                      {v.user_id !== user?.id && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button className="text-muted-foreground hover:text-foreground p-1">
+                              <MoreVertical className="h-3.5 w-3.5" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="bg-card border-border">
+                            <DropdownMenuItem onClick={() => setReportTarget({ userId: v.user_id, reason: "" })}>
+                              <Flag className="h-4 w-4 mr-2" /> Report
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            {blockedIds.has(v.user_id) ? (
+                              <DropdownMenuItem onClick={() => unblockUser(v.user_id)}>
+                                <Ban className="h-4 w-4 mr-2" /> Unblock
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem onClick={() => blockUser(v.user_id)} className="text-destructive focus:text-destructive">
+                                <Ban className="h-4 w-4 mr-2" /> Block
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              {blockedIds.size > 0 && (
+                <p className="mt-2 text-[11px] text-muted-foreground italic pt-2 border-t border-border">
+                  {blockedIds.size} blocked user(s) hidden.{" "}
+                  <button className="underline hover:text-foreground" onClick={() => persistBlocks(new Set())}>
+                    Unblock all
+                  </button>
+                </p>
+              )}
+            </Card>
 
             {/* Pre-join permissions step (viewer) */}
             <PreJoinPermissions

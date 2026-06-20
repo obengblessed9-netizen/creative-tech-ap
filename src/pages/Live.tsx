@@ -126,7 +126,25 @@ const Live = () => {
       .select("*")
       .order("started_at", { ascending: false })
       .limit(100);
-    const rows = (data as LiveStreamRow[]) || [];
+    let rows = (data as LiveStreamRow[]) || [];
+
+    // Fetch active viewers to compute accurate viewer count
+    const { data: activeViewers } = await supabase
+      .from("live_stream_viewers")
+      .select("stream_id")
+      .is("left_at", null);
+
+    if (activeViewers) {
+      const counts: Record<string, number> = {};
+      activeViewers.forEach((v) => {
+        counts[v.stream_id] = (counts[v.stream_id] || 0) + 1;
+      });
+      rows = rows.map((r) => ({
+        ...r,
+        viewer_count: counts[r.id] || 0,
+      }));
+    }
+
     setStreams(rows);
 
     const ids = Array.from(new Set(rows.map((r) => r.host_id)));
@@ -148,6 +166,7 @@ const Live = () => {
     const channel = supabase
       .channel("live-hub-list")
       .on("postgres_changes", { event: "*", schema: "public", table: "live_streams" }, fetchStreams)
+      .on("postgres_changes", { event: "*", schema: "public", table: "live_stream_viewers" }, fetchStreams)
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, []);

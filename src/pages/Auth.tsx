@@ -222,7 +222,7 @@ const Auth = () => {
 
     const mockSession = {
       access_token: "mock-sandbox-developer-token-jwt",
-      token_type: "bearer",
+      token_type: "bearer" as const,
       expires_in: 3600,
       refresh_token: "mock-sandbox-developer-refresh-token",
       user: mockUser as any
