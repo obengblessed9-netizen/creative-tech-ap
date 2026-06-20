@@ -13,16 +13,7 @@ import { toast } from "sonner";
 import { Upload, ImagePlus, X, Plus } from "lucide-react";
 
 const categoryGroups = [
-  { label: "🎨 Paintings", options: ["Oil Paintings", "Acrylic Paintings", "Watercolor Paintings", "Gouache Paintings", "Mixed Media Paintings"] },
-  { label: "✏️ Drawings & Sketches", options: ["Pencil Drawings", "Charcoal Drawings", "Ink Illustrations", "Pen Art", "Digital Sketches"] },
-  { label: "💻 Digital Art", options: ["Digital Illustrations", "Concept Art", "Character Design", "3D Renders", "NFT Artworks", "AI-Assisted Artwork"] },
-  { label: "📸 Photography", options: ["Portrait Photography", "Landscape Photography", "Street Photography", "Wildlife Photography", "Product Photography", "Event Photography"] },
-  { label: "🗿 Sculptures", options: ["Clay Sculptures", "Wood Carvings", "Metal Sculptures", "Stone Sculptures", "3D Printed Sculptures"] },
-  { label: "🧵 Textile & Craft Art", options: ["Fashion Design Sketches", "Handmade Crafts", "Beadwork", "Embroidery", "Crochet & Knitting Art"] },
-  { label: "🖌️ Calligraphy & Typography", options: ["Hand Lettering", "Brush Calligraphy", "Modern Typography Design"] },
-  { label: "🧩 Graphic Design", options: ["Logo Designs", "Posters", "Flyers", "Album Covers", "Branding Materials"] },
   { label: "🖼️ Prints & Merchandise", options: ["T-Shirt Designs", "Sticker Designs", "Wall Art Prints"] },
-  { label: "🎥 Multimedia Art", options: ["Short Animations", "Motion Graphics", "Video Art", "GIF Artwork"] },
 ];
 const availabilityOptions = ["available", "sold", "commissioned"];
 

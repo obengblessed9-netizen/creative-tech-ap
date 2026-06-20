@@ -14,16 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 
 const categoryGroups = [
-  { emoji: "🎨", label: "Paintings", subcategories: ["Oil Paintings", "Acrylic Paintings", "Watercolor Paintings", "Gouache Paintings", "Mixed Media Paintings"] },
-  { emoji: "✏️", label: "Drawings & Sketches", subcategories: ["Pencil Drawings", "Charcoal Drawings", "Ink Illustrations", "Pen Art", "Digital Sketches"] },
-  { emoji: "💻", label: "Digital Art", subcategories: ["Digital Illustrations", "Concept Art", "Character Design", "3D Renders", "NFT Artworks", "AI-Assisted Artwork"] },
-  { emoji: "📸", label: "Photography", subcategories: ["Portrait Photography", "Landscape Photography", "Street Photography", "Wildlife Photography", "Product Photography", "Event Photography"] },
-  { emoji: "🗿", label: "Sculptures", subcategories: ["Clay Sculptures", "Wood Carvings", "Metal Sculptures", "Stone Sculptures", "3D Printed Sculptures"] },
-  { emoji: "🧵", label: "Textile & Craft Art", subcategories: ["Fashion Design Sketches", "Handmade Crafts", "Beadwork", "Embroidery", "Crochet and Knitting Art"] },
-  { emoji: "🖌️", label: "Calligraphy & Typography", subcategories: ["Hand Lettering", "Brush Calligraphy", "Modern Typography Design"] },
-  { emoji: "🧩", label: "Graphic Design Works", subcategories: ["Logo Designs", "Posters", "Flyers", "Album Covers", "Branding Materials"] },
   { emoji: "🖼️", label: "Prints & Merchandise", subcategories: ["T-Shirt Designs", "Sticker Designs", "Wall Art Prints"] },
-  { emoji: "🎥", label: "Multimedia Art", subcategories: ["Short Animations", "Motion Graphics", "Video Art", "GIF Artwork"] },
 ];
 
 const infoCards = [
