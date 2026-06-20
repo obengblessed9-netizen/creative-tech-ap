@@ -72,17 +72,6 @@ export default function HostStudio({ title, hostName, hostStream, viewers, peerS
   const sources = [
     { id: "host", name: hostName, stream: hostStream, isHost: true, gradient: "from-amber-700 to-amber-900", status: "connected" as PeerStatus },
     ...peerSources,
-    // Show DB viewers without an active webcam as placeholder tiles
-    ...active
-      .filter((v) => !peerStreams.some((p) => p.name === (v.display_name || v.user_id.slice(0, 6))))
-      .map((v, i) => ({
-        id: v.id,
-        name: v.display_name || v.user_id.slice(0, 6),
-        stream: null as MediaStream | null,
-        isHost: false,
-        gradient: GRADIENTS[(peerSources.length + i) % GRADIENTS.length],
-        status: "connecting" as PeerStatus,
-      })),
   ];
 
   const STATUS_META: Record<PeerStatus, { label: string; cls: string }> = {

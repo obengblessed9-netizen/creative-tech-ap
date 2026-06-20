@@ -154,9 +154,8 @@ const LiveStream = () => {
       const s = pc.connectionState;
       if (s === "connected") peerStatusesRef.current.set(viewerId, "connected");
       else if (s === "connecting" || s === "new") peerStatusesRef.current.set(viewerId, "connecting");
-      else if (s === "failed") peerStatusesRef.current.set(viewerId, "failed");
-      else if (s === "disconnected") peerStatusesRef.current.set(viewerId, "disconnected");
-      if (s === "closed") {
+      else if (s === "failed" || s === "disconnected" || s === "closed") {
+        pc.close();
         peerStatusesRef.current.delete(viewerId);
         peerStreamsRef.current.delete(viewerId);
         peersRef.current.delete(viewerId);
@@ -256,6 +255,18 @@ const LiveStream = () => {
       if (pc) {
         try { await pc.addIceCandidate(payload.candidate); } catch (e) { console.warn("ICE add failed", e); }
       }
+    });
+
+    ch.on("broadcast", { event: "leave" }, ({ payload }) => {
+      if (!isHost) return;
+      const viewerId = payload.from;
+      if (peersRef.current.has(viewerId)) {
+        peersRef.current.get(viewerId)?.close();
+        peersRef.current.delete(viewerId);
+      }
+      peerStatusesRef.current.delete(viewerId);
+      peerStreamsRef.current.delete(viewerId);
+      bumpPeerSources();
     });
 
     ch.subscribe((status) => {
@@ -555,7 +566,21 @@ const LiveStream = () => {
         .update({ viewer_count: Math.max(0, (stream.viewer_count || 1) - 1) })
         .eq("id", stream.id);
     } catch {}
-    if (videoRef.current) videoRef.current.muted = true;
+    
+    sendSignal("leave", { from: myPeerIdRef.current });
+    peersRef.current.forEach((pc) => pc.close());
+    peersRef.current.clear();
+    setViewerConn("idle");
+    setHasRemote(false);
+    if (remoteStreamRef.current) {
+      remoteStreamRef.current.getTracks().forEach((t) => t.stop());
+      remoteStreamRef.current = null;
+    }
+
+    if (videoRef.current) {
+      videoRef.current.muted = true;
+      videoRef.current.srcObject = null;
+    }
     viewerLocalStreamRef.current?.getTracks().forEach((t) => t.stop());
     viewerLocalStreamRef.current = null;
     toast.success("You left the live session");
