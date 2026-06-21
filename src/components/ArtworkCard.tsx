@@ -7,6 +7,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 export interface ArtworkCardData {
   id: string;
@@ -39,6 +41,12 @@ const ArtworkCard = ({ artwork, index = 0, onEdit, onDelete }: ArtworkCardProps)
     e.preventDefault();
     e.stopPropagation();
     toggleFavorite(artwork.id);
+  };
+
+  const handlePlaceOrder = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toast.success(`Order request placed for "${artwork.title}". The artist will contact you soon!`);
   };
 
   return (
@@ -127,8 +135,15 @@ const ArtworkCard = ({ artwork, index = 0, onEdit, onDelete }: ArtworkCardProps)
       <div className="mt-3 transition-opacity duration-300">
         <h3 className="font-display text-base font-medium text-foreground">{artwork.title}</h3>
         <p className="text-sm text-muted-foreground">{artwork.artist}</p>
-        <div className="mt-1 flex items-center justify-between">
+        <div className="mt-2 flex items-center justify-between">
           <p className="text-sm font-medium text-primary">${artwork.price.toLocaleString()}</p>
+          <Button 
+            onClick={handlePlaceOrder}
+            size="sm" 
+            className="bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground"
+          >
+            Place Order
+          </Button>
         </div>
       </div>
     </Link>
