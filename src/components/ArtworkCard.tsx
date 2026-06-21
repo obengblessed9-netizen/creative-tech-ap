@@ -20,9 +20,11 @@ export interface ArtworkCardData {
 interface ArtworkCardProps {
   artwork: ArtworkCardData;
   index?: number;
+  onEdit?: (id: string) => void;
+  onDelete?: (id: string) => void;
 }
 
-const ArtworkCard = ({ artwork, index = 0 }: ArtworkCardProps) => {
+const ArtworkCard = ({ artwork, index = 0, onEdit, onDelete }: ArtworkCardProps) => {
   const { isFavorite, toggleFavorite } = useFavorites();
   const favorited = isFavorite(artwork.id);
 
