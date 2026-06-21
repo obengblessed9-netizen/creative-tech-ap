@@ -7,6 +7,7 @@ import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import EditArtworkDialog from "@/components/EditArtworkDialog";
 import {
   Pencil, Trash2, Eye, Heart, Share2, Plus, Package, BarChart3,
   MessageCircle, Users, Image as ImageIcon, DollarSign, Mail, CheckCircle
@@ -44,6 +45,7 @@ const ArtistDashboard = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [followerCount, setFollowerCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [editingArtworkId, setEditingArtworkId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth");
@@ -201,6 +203,9 @@ const ArtistDashboard = () => {
                           <CheckCircle className="mr-1 h-3 w-3" /> Sold
                         </Button>
                       )}
+                      <Button variant="ghost" size="icon" onClick={() => setEditingArtworkId(a.id)} className="text-muted-foreground hover:text-primary">
+                        <Pencil className="h-4 w-4" />
+                      </Button>
                       <Button variant="ghost" size="icon" onClick={() => handleDeleteArtwork(a.id)} className="text-muted-foreground hover:text-destructive">
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -251,9 +256,26 @@ const ArtistDashboard = () => {
           )}
         </div>
       </main>
+
+      {editingArtworkId && (
+        <EditArtworkDialog
+          open={!!editingArtworkId}
+          onClose={() => setEditingArtworkId(null)}
+          artworkId={editingArtworkId}
+          onSaved={() => {
+            if (artistId) {
+              supabase.from("artworks").select("id, title, price, image_url, available, availability_status, views_count, likes_count, shares_count, created_at").eq("artist_id", artistId).order("created_at", { ascending: false }).then(res => {
+                if (res.data) setArtworks(res.data as DashboardArtwork[]);
+              });
+            }
+          }}
+        />
+      )}
+
       <Footer />
     </div>
   );
 };
 
 export default ArtistDashboard;
+

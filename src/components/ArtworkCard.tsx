@@ -1,6 +1,12 @@
-import { Link } from "react-router-dom";
-import { Heart, Pencil, Trash2 } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Heart, Pencil, Trash2, MoreHorizontal, Plus } from "lucide-react";
 import { useFavorites } from "@/contexts/FavoritesContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export interface ArtworkCardData {
   id: string;
@@ -26,6 +32,7 @@ interface ArtworkCardProps {
 
 const ArtworkCard = ({ artwork, index = 0, onEdit, onDelete }: ArtworkCardProps) => {
   const { isFavorite, toggleFavorite } = useFavorites();
+  const navigate = useNavigate();
   const favorited = isFavorite(artwork.id);
 
   const handleFavorite = (e: React.MouseEvent) => {
@@ -37,7 +44,7 @@ const ArtworkCard = ({ artwork, index = 0, onEdit, onDelete }: ArtworkCardProps)
   return (
     <Link
       to={`/artwork/${artwork.id}`}
-      className="group block opacity-0 animate-fade-in"
+      className="group block animate-fade-in"
       style={{ animationDelay: `${index * 100}ms` }}
     >
       <div className="relative overflow-hidden rounded-lg bg-card">
@@ -54,6 +61,49 @@ const ArtworkCard = ({ artwork, index = 0, onEdit, onDelete }: ArtworkCardProps)
             Sold
           </div>
         )}
+        {(onEdit || onDelete) && (
+          <div className="absolute top-3 right-3 z-10">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-gold text-primary shadow-lg hover:scale-110 transition-transform"
+                >
+                  <MoreHorizontal className="h-6 w-6" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48 bg-card border-border">
+                {onEdit && (
+                  <DropdownMenuItem
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(artwork.id); }}
+                    className="cursor-pointer hover:bg-secondary focus:bg-secondary"
+                  >
+                    <Pencil className="mr-2 h-4 w-4" />
+                    <span>Edit Artwork</span>
+                  </DropdownMenuItem>
+                )}
+                {onDelete && (
+                  <DropdownMenuItem
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(artwork.id); }}
+                    className="cursor-pointer text-destructive hover:bg-destructive/10 focus:bg-destructive/10"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    <span>Delete Artwork</span>
+                  </DropdownMenuItem>
+                )}
+                {(onEdit || onDelete) && (
+                  <DropdownMenuItem
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(`/submit?artist_id=${artwork.artistId}`); }}
+                    className="cursor-pointer hover:bg-secondary focus:bg-secondary"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    <span>Add more artworks</span>
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
         <div className="absolute top-3 left-3 flex gap-2">
           <button
             onClick={handleFavorite}
@@ -66,36 +116,20 @@ const ArtworkCard = ({ artwork, index = 0, onEdit, onDelete }: ArtworkCardProps)
               }`}
             />
           </button>
-          {onEdit && (
-            <button
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(artwork.id); }}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-background/70 backdrop-blur-sm transition-all hover:bg-background/90 hover:scale-110"
-              aria-label="Edit artwork"
-            >
-              <Pencil className="h-4 w-4 text-foreground" />
-            </button>
-          )}
-          {onDelete && (
-            <button
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(artwork.id); }}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-background/70 backdrop-blur-sm transition-all hover:bg-destructive hover:scale-110 group/delete"
-              aria-label="Delete artwork"
-            >
-              <Trash2 className="h-4 w-4 text-foreground group-hover/delete:text-destructive-foreground" />
-            </button>
-          )}
         </div>
-        <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-transparent to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
-        <div className="absolute bottom-0 left-0 right-0 translate-y-4 p-4 opacity-0 transition-all duration-500 group-hover:translate-y-0 group-hover:opacity-100">
+        <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-transparent to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 right-0 translate-y-4 p-4 opacity-0 transition-all duration-500 group-hover:translate-y-0 group-hover:opacity-100 pointer-events-none">
           <p className="text-xs font-medium uppercase tracking-wider text-primary">{artwork.artist}</p>
           <h3 className="font-display text-lg font-semibold text-foreground">{artwork.title}</h3>
           <p className="text-sm text-muted-foreground">${artwork.price.toLocaleString()}</p>
         </div>
       </div>
-      <div className="mt-3 group-hover:opacity-0 transition-opacity duration-300">
+      <div className="mt-3 transition-opacity duration-300">
         <h3 className="font-display text-base font-medium text-foreground">{artwork.title}</h3>
         <p className="text-sm text-muted-foreground">{artwork.artist}</p>
-        <p className="mt-1 text-sm font-medium text-primary">${artwork.price.toLocaleString()}</p>
+        <div className="mt-1 flex items-center justify-between">
+          <p className="text-sm font-medium text-primary">${artwork.price.toLocaleString()}</p>
+        </div>
       </div>
     </Link>
   );

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import Navbar from "@/components/Navbar";
@@ -18,8 +18,11 @@ const categoryGroups = [
 const availabilityOptions = ["available", "sold", "commissioned"];
 
 const SubmitArtwork = () => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, isAdmin, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const targetArtistId = searchParams.get("artist_id");
+
   const [title, setTitle] = useState("");
   const [price, setPrice] = useState("");
   const [medium, setMedium] = useState("");
@@ -69,14 +72,21 @@ const SubmitArtwork = () => {
     setSubmitting(true);
 
     try {
-      const { data: artistData, error: artistError } = await supabase
-        .from("artists")
-        .select("id")
-        .eq("user_id", user.id)
-        .maybeSingle();
+      let finalArtistId = null;
 
-      if (artistError || !artistData) {
-        throw new Error("Artist profile not found. You must be an approved artist to submit artworks.");
+      if (isAdmin && targetArtistId) {
+        finalArtistId = targetArtistId;
+      } else {
+        const { data: artistData, error: artistError } = await supabase
+          .from("artists")
+          .select("id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (artistError || !artistData) {
+          throw new Error("Artist profile not found. You must be an approved artist to submit artworks.");
+        }
+        finalArtistId = artistData.id;
       }
 
       let imageUrl: string | null = null;
@@ -114,7 +124,7 @@ const SubmitArtwork = () => {
       }
 
       const { error } = await supabase.from("artworks").insert({
-        artist_id: artistData.id,
+        artist_id: finalArtistId,
         title,
         price: parseFloat(price),
         medium: medium || null,
@@ -132,7 +142,11 @@ const SubmitArtwork = () => {
 
       if (error) throw error;
       toast.success("Artwork submitted successfully!");
-      navigate("/gallery");
+      if (isAdmin && targetArtistId) {
+        navigate(`/artist/${targetArtistId}`);
+      } else {
+        navigate("/gallery");
+      }
     } catch (err: any) {
       toast.error(err.message || "Failed to submit artwork");
     } finally {

@@ -16,10 +16,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { FollowersList } from "@/components/artist/FollowersList";
 import { ArtistRating } from "@/components/artist/ArtistRating";
 import {
-  Settings, Users, CheckCircle, ShieldCheck, ImageIcon, Pencil, Save, X,
+  Settings, Users, CheckCircle, ShieldCheck, ImageIcon, Pencil, Save, X, Plus,
   Globe, Instagram, Facebook, Youtube, Linkedin, Award, GraduationCap, Calendar, MapPin,
   Mail, Share2, Heart, Star, MessageCircle, CalendarDays, Send, Phone
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface ArtistData {
   id: string;
@@ -73,7 +83,7 @@ interface ArtworkData {
 
 const ArtistProfile = () => {
   const { id } = useParams<{ id: string }>();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [artist, setArtist] = useState<ArtistData | null>(null);
   const [artworks, setArtworks] = useState<ArtworkData[]>([]);
@@ -94,8 +104,10 @@ const ArtistProfile = () => {
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [bookingMessage, setBookingMessage] = useState("");
   const [editingArtworkId, setEditingArtworkId] = useState<string | null>(null);
+  const [deleteArtworkId, setDeleteArtworkId] = useState<string | null>(null);
 
   const isOwner = user && artist?.user_id === user.id;
+  const canManage = isOwner || isAdmin;
 
   useEffect(() => {
     if (!id) return;
@@ -263,15 +275,20 @@ const ArtistProfile = () => {
     setSaving(false);
   };
 
-  const handleDeleteArtwork = async (artworkId: string) => {
-    if (!confirm("Are you sure you want to delete this artwork?")) return;
-    const { error } = await supabase.from("artworks").delete().eq("id", artworkId);
+  const handleDeleteArtwork = (artworkId: string) => {
+    setDeleteArtworkId(artworkId);
+  };
+
+  const confirmDeleteArtwork = async () => {
+    if (!deleteArtworkId) return;
+    const { error } = await supabase.from("artworks").delete().eq("id", deleteArtworkId);
     if (error) {
       toast.error("Failed to delete artwork");
     } else {
       toast.success("Artwork deleted");
-      setArtworks((prev) => prev.filter((a) => a.id !== artworkId));
+      setArtworks((prev) => prev.filter((a) => a.id !== deleteArtworkId));
     }
+    setDeleteArtworkId(null);
   };
 
   const handleEditArtwork = (artworkId: string) => {
@@ -654,13 +671,20 @@ const ArtistProfile = () => {
 
             {/* Right - Artworks Grid */}
             <div>
-              <h2 className="font-display text-2xl font-bold text-foreground">Artworks</h2>
+              <div className="flex items-center justify-between">
+                <h2 className="font-display text-2xl font-bold text-foreground">Artworks</h2>
+                {canManage && (
+                  <Button onClick={() => navigate(`/submit?artist_id=${artist.id}`)} size="sm" className="bg-gradient-gold text-primary-foreground shadow-gold hover:opacity-90">
+                    <Plus className="mr-2 h-4 w-4" /> Add Artwork
+                  </Button>
+                )}
+              </div>
               {artworks.length === 0 ? (
                 <div className="mt-8 rounded-lg border border-border bg-card p-12 text-center">
                   <ImageIcon className="mx-auto h-12 w-12 text-muted-foreground" />
                   <p className="mt-4 text-muted-foreground">No artworks yet.</p>
-                  {isOwner && (
-                    <Button onClick={() => navigate("/submit")} className="mt-4 bg-gradient-gold text-primary-foreground shadow-gold">
+                  {canManage && (
+                    <Button onClick={() => navigate(`/submit?artist_id=${artist.id}`)} className="mt-4 bg-gradient-gold text-primary-foreground shadow-gold">
                       Submit Your First Artwork
                     </Button>
                   )}
@@ -685,8 +709,8 @@ const ArtistProfile = () => {
                         available: work.available,
                       }}
                       index={i}
-                      onEdit={isOwner ? handleEditArtwork : undefined}
-                      onDelete={isOwner ? handleDeleteArtwork : undefined}
+                      onEdit={canManage ? handleEditArtwork : undefined}
+                      onDelete={canManage ? handleDeleteArtwork : undefined}
                     />
                   ))}
                 </div>
@@ -706,7 +730,7 @@ const ArtistProfile = () => {
         />
       )}
 
-      {isOwner && editingArtworkId && (
+      {canManage && editingArtworkId && (
         <EditArtworkDialog
           open={!!editingArtworkId}
           onClose={() => setEditingArtworkId(null)}
@@ -720,6 +744,23 @@ const ArtistProfile = () => {
           }}
         />
       )}
+
+      <AlertDialog open={!!deleteArtworkId} onOpenChange={(open) => !open && setDeleteArtworkId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this artwork?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the artwork and remove it from our servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteArtwork} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Footer />
     </div>
