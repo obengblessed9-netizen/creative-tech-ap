@@ -19,7 +19,6 @@ import Auth from "./pages/Auth";
 import AdminDashboard from "./pages/AdminDashboard";
 import ProfilePage from "./pages/ProfilePage";
 import SubmitArtwork from "./pages/SubmitArtwork";
-import Sell from "./pages/Sell";
 import ResetPassword from "./pages/ResetPassword";
 import ArtistDashboard from "./pages/ArtistDashboard";
 import Payment from "./pages/Payment";
@@ -66,7 +65,6 @@ const App = () => {
                 <Route path="/artist/:id" element={<ProtectedRoute><ArtistProfile /></ProtectedRoute>} />
                 <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
                 <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-                <Route path="/sell" element={<ProtectedRoute><Sell /></ProtectedRoute>} />
                 <Route path="/submit" element={<ProtectedRoute><SubmitArtwork /></ProtectedRoute>} />
                 <Route path="/create-profile" element={<ProtectedRoute><CreateProfile /></ProtectedRoute>} />
                 <Route path="/dashboard" element={<ProtectedRoute><ArtistDashboard /></ProtectedRoute>} />

@@ -69,6 +69,16 @@ const SubmitArtwork = () => {
     setSubmitting(true);
 
     try {
+      const { data: artistData, error: artistError } = await supabase
+        .from("artists")
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (artistError || !artistData) {
+        throw new Error("Artist profile not found. You must be an approved artist to submit artworks.");
+      }
+
       let imageUrl: string | null = null;
       if (imageFile) {
         const ext = imageFile.name.split(".").pop();
@@ -104,6 +114,7 @@ const SubmitArtwork = () => {
       }
 
       const { error } = await supabase.from("artworks").insert({
+        artist_id: artistData.id,
         title,
         price: parseFloat(price),
         medium: medium || null,

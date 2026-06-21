@@ -179,7 +179,7 @@ const ArtistDashboard = () => {
           {/* Artworks Tab */}
           {tab === "artworks" && (
             <div className="mt-6">
-              <Button onClick={() => navigate("/sell")} className="mb-4 bg-gradient-gold text-primary-foreground shadow-gold">
+              <Button onClick={() => navigate("/submit")} className="mb-4 bg-gradient-gold text-primary-foreground shadow-gold">
                 <Plus className="mr-2 h-4 w-4" /> Upload New Artwork
               </Button>
               <div className="space-y-3">

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Award, ArrowRight, Star, Trash2 } from "lucide-react";
+import { Award, ArrowRight, Star, Trash2, MapPin, Mail, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,6 +15,12 @@ interface FeaturedArtist {
   city: string | null;
   country: string | null;
   description: string | null;
+  real_name?: string | null;
+  username?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  medium_used?: string | null;
+  art_style?: string | null;
 }
 
 const FeaturedArtistSpotlight = () => {
@@ -51,7 +57,7 @@ const FeaturedArtistSpotlight = () => {
       const now = new Date();
       const { data: featured } = await supabase
         .from("featured_artists")
-        .select("id, artist_id, description, artists(id, name, bio, image_url, specialty, city, country)")
+        .select("id, artist_id, description, artists(id, name, bio, image_url, specialty, city, country, real_name, username, email, phone, medium_used, art_style)")
         .eq("month", now.getMonth() + 1)
         .eq("year", now.getFullYear())
         .maybeSingle();
@@ -68,6 +74,12 @@ const FeaturedArtistSpotlight = () => {
           city: a.city,
           country: a.country,
           description: featured.description,
+          real_name: a.real_name,
+          username: a.username,
+          email: a.email,
+          phone: a.phone,
+          medium_used: a.medium_used,
+          art_style: a.art_style,
         });
         setDescription(featured.description || "");
       }
@@ -99,12 +111,28 @@ const FeaturedArtistSpotlight = () => {
                 {new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}
               </p>
               <h3 className="font-display text-3xl font-bold text-gradient-gold mb-2">{artist.name}</h3>
+              {artist.username && <p className="text-sm text-muted-foreground mb-1">@{artist.username}</p>}
+              {artist.real_name && <p className="text-sm text-muted-foreground mb-1">Real Name: {artist.real_name}</p>}
+              
               {artist.specialty && (
-                <p className="text-sm text-muted-foreground mb-3">{artist.specialty}</p>
+                <p className="text-sm text-primary mb-1">{artist.specialty}</p>
               )}
+              {artist.art_style && <p className="text-xs text-muted-foreground mb-1">Style: {artist.art_style}</p>}
+              {artist.medium_used && <p className="text-xs text-muted-foreground mb-3">Medium: {artist.medium_used}</p>}
+              
               {(artist.city || artist.country) && (
-                <p className="text-xs text-muted-foreground mb-4">
-                  {[artist.city, artist.country].filter(Boolean).join(", ")}
+                <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                  <MapPin className="h-3 w-3" /> {[artist.city, artist.country].filter(Boolean).join(", ")}
+                </p>
+              )}
+              {artist.email && (
+                <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                  <Mail className="h-3 w-3" /> {artist.email}
+                </p>
+              )}
+              {artist.phone && (
+                <p className="text-xs text-muted-foreground mb-4 flex items-center gap-1">
+                  <Phone className="h-3 w-3" /> {artist.phone}
                 </p>
               )}
               <p className="text-foreground/80 leading-relaxed mb-6 line-clamp-3">

@@ -17,7 +17,7 @@ import { ArtistRating } from "@/components/artist/ArtistRating";
 import {
   Settings, Users, CheckCircle, ShieldCheck, ImageIcon, Pencil, Save, X,
   Globe, Instagram, Facebook, Youtube, Linkedin, Award, GraduationCap, Calendar, MapPin,
-  Mail, Share2, Heart, Star, MessageCircle, CalendarDays, Send
+  Mail, Share2, Heart, Star, MessageCircle, CalendarDays, Send, Phone
 } from "lucide-react";
 
 interface ArtistData {
@@ -449,11 +449,23 @@ const ArtistProfile = () => {
                         {artist.verified && <ShieldCheck className="h-5 w-5 text-primary" />}
                       </h1>
                       {artist.username && <p className="text-sm text-muted-foreground">@{artist.username}</p>}
+                      {artist.real_name && <p className="text-sm text-muted-foreground">Real Name: {artist.real_name}</p>}
                       {artist.specialty && <p className="mt-1 text-sm text-primary">{artist.specialty}</p>}
-                      {artist.art_style && <p className="text-xs text-muted-foreground">{artist.art_style}</p>}
+                      {artist.art_style && <p className="text-xs text-muted-foreground">Style: {artist.art_style}</p>}
+                      {artist.medium_used && <p className="text-xs text-muted-foreground">Medium: {artist.medium_used}</p>}
                       {(artist.city || artist.country) && (
                         <p className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
                           <MapPin className="h-3 w-3" /> {[artist.city, artist.country].filter(Boolean).join(", ")}
+                        </p>
+                      )}
+                      {artist.email && (
+                        <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                          <Mail className="h-3 w-3" /> {artist.email}
+                        </p>
+                      )}
+                      {artist.phone && (
+                        <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                          <Phone className="h-3 w-3" /> {artist.phone}
                         </p>
                       )}
                       {artist.bio && <p className="mt-3 text-sm text-muted-foreground leading-relaxed">{artist.bio}</p>}
@@ -631,7 +643,7 @@ const ArtistProfile = () => {
                   <ImageIcon className="mx-auto h-12 w-12 text-muted-foreground" />
                   <p className="mt-4 text-muted-foreground">No artworks yet.</p>
                   {isOwner && (
-                    <Button onClick={() => navigate("/sell")} className="mt-4 bg-gradient-gold text-primary-foreground shadow-gold">
+                    <Button onClick={() => navigate("/submit")} className="mt-4 bg-gradient-gold text-primary-foreground shadow-gold">
                       Submit Your First Artwork
                     </Button>
                   )}
