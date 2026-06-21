@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Heart } from "lucide-react";
+import { Heart, Pencil, Trash2 } from "lucide-react";
 import { useFavorites } from "@/contexts/FavoritesContext";
 
 export interface ArtworkCardData {
@@ -52,17 +52,37 @@ const ArtworkCard = ({ artwork, index = 0 }: ArtworkCardProps) => {
             Sold
           </div>
         )}
-        <button
-          onClick={handleFavorite}
-          className="absolute top-3 left-3 flex h-8 w-8 items-center justify-center rounded-full bg-background/70 backdrop-blur-sm transition-all hover:bg-background/90 hover:scale-110"
-          aria-label={favorited ? "Remove from favorites" : "Add to favorites"}
-        >
-          <Heart
-            className={`h-4 w-4 transition-colors ${
-              favorited ? "fill-destructive text-destructive" : "text-foreground"
-            }`}
-          />
-        </button>
+        <div className="absolute top-3 left-3 flex gap-2">
+          <button
+            onClick={handleFavorite}
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-background/70 backdrop-blur-sm transition-all hover:bg-background/90 hover:scale-110"
+            aria-label={favorited ? "Remove from favorites" : "Add to favorites"}
+          >
+            <Heart
+              className={`h-4 w-4 transition-colors ${
+                favorited ? "fill-destructive text-destructive" : "text-foreground"
+              }`}
+            />
+          </button>
+          {onEdit && (
+            <button
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(artwork.id); }}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-background/70 backdrop-blur-sm transition-all hover:bg-background/90 hover:scale-110"
+              aria-label="Edit artwork"
+            >
+              <Pencil className="h-4 w-4 text-foreground" />
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(artwork.id); }}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-background/70 backdrop-blur-sm transition-all hover:bg-destructive hover:scale-110 group/delete"
+              aria-label="Delete artwork"
+            >
+              <Trash2 className="h-4 w-4 text-foreground group-hover/delete:text-destructive-foreground" />
+            </button>
+          )}
+        </div>
         <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-transparent to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
         <div className="absolute bottom-0 left-0 right-0 translate-y-4 p-4 opacity-0 transition-all duration-500 group-hover:translate-y-0 group-hover:opacity-100">
           <p className="text-xs font-medium uppercase tracking-wider text-primary">{artwork.artist}</p>

@@ -6,6 +6,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ArtworkCard from "@/components/ArtworkCard";
 import VerificationDialog from "@/components/VerificationDialog";
+import EditArtworkDialog from "@/components/EditArtworkDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -92,6 +93,7 @@ const ArtistProfile = () => {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [bookingMessage, setBookingMessage] = useState("");
+  const [editingArtworkId, setEditingArtworkId] = useState<string | null>(null);
 
   const isOwner = user && artist?.user_id === user.id;
 
@@ -259,6 +261,21 @@ const ArtistProfile = () => {
       setEditing(false);
     }
     setSaving(false);
+  };
+
+  const handleDeleteArtwork = async (artworkId: string) => {
+    if (!confirm("Are you sure you want to delete this artwork?")) return;
+    const { error } = await supabase.from("artworks").delete().eq("id", artworkId);
+    if (error) {
+      toast.error("Failed to delete artwork");
+    } else {
+      toast.success("Artwork deleted");
+      setArtworks((prev) => prev.filter((a) => a.id !== artworkId));
+    }
+  };
+
+  const handleEditArtwork = (artworkId: string) => {
+    setEditingArtworkId(artworkId);
   };
 
   const updateField = (key: keyof ArtistData, value: any) => {
@@ -668,6 +685,8 @@ const ArtistProfile = () => {
                         available: work.available,
                       }}
                       index={i}
+                      onEdit={isOwner ? handleEditArtwork : undefined}
+                      onDelete={isOwner ? handleDeleteArtwork : undefined}
                     />
                   ))}
                 </div>
@@ -684,6 +703,21 @@ const ArtistProfile = () => {
           artistId={artist.id}
           userId={user!.id}
           onVerified={() => setArtist(prev => prev ? { ...prev, verified: true, verification_status: "approved" } : prev)}
+        />
+      )}
+
+      {isOwner && editingArtworkId && (
+        <EditArtworkDialog
+          open={!!editingArtworkId}
+          onClose={() => setEditingArtworkId(null)}
+          artworkId={editingArtworkId}
+          onSaved={() => {
+            if (id) {
+              supabase.from("artworks").select("*").eq("artist_id", id).then(res => {
+                if (res.data) setArtworks(res.data as ArtworkData[]);
+              });
+            }
+          }}
         />
       )}
 
