@@ -52,32 +52,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_OUT") {
-        localStorage.removeItem("sb-sandbox-session");
-        setSession(null);
-        setUser(null);
-        setIsAdmin(false);
-        setIsStaff(false);
-      } else {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          setTimeout(() => checkRoles(session.user.id), 0);
-        } else {
-          setIsAdmin(false);
-          setIsStaff(false);
-        }
-      }
-      setLoading(false);
-    });
+    let initialized = false;
 
+    // First, get the current session to set initial state
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         setSession(session);
         setUser(session.user);
         checkRoles(session.user.id);
-        setLoading(false);
       } else {
         // Fallback to local sandbox session if present
         const savedSandbox = localStorage.getItem("sb-sandbox-session");
@@ -92,7 +74,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             localStorage.removeItem("sb-sandbox-session");
           }
         }
-        setLoading(false);
+      }
+      initialized = true;
+      setLoading(false);
+    });
+
+    // Then listen for subsequent auth changes (sign in/out)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // Skip the initial event fired by onAuthStateChange, since we handle it via getSession
+      if (!initialized) return;
+
+      if (event === "SIGNED_OUT") {
+        localStorage.removeItem("sb-sandbox-session");
+        setSession(null);
+        setUser(null);
+        setIsAdmin(false);
+        setIsStaff(false);
+      } else if (session) {
+        setSession(session);
+        setUser(session.user);
+        setTimeout(() => checkRoles(session.user.id), 0);
+      } else {
+        setSession(null);
+        setUser(null);
+        setIsAdmin(false);
+        setIsStaff(false);
       }
     });
 
