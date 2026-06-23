@@ -97,7 +97,7 @@ const ArtworkCard = ({ artwork, index = 0, onEdit, onDelete }: ArtworkCardProps)
               <DropdownMenuContent align="end" className="w-48 bg-card border-border">
                 {onEdit && (
                   <DropdownMenuItem
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(artwork.id); }}
+                    onSelect={() => onEdit(artwork.id)}
                     className="cursor-pointer hover:bg-secondary focus:bg-secondary"
                   >
                     <Pencil className="mr-2 h-4 w-4" />
@@ -106,7 +106,7 @@ const ArtworkCard = ({ artwork, index = 0, onEdit, onDelete }: ArtworkCardProps)
                 )}
                 {onDelete && (
                   <DropdownMenuItem
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(artwork.id); }}
+                    onSelect={() => onDelete(artwork.id)}
                     className="cursor-pointer text-destructive hover:bg-destructive/10 focus:bg-destructive/10"
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
@@ -115,7 +115,7 @@ const ArtworkCard = ({ artwork, index = 0, onEdit, onDelete }: ArtworkCardProps)
                 )}
                 {(onEdit || onDelete) && (
                   <DropdownMenuItem
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(`/submit?artist_id=${artwork.artistId}`); }}
+                    onSelect={() => navigate(`/submit?artist_id=${artwork.artistId}`)}
                     className="cursor-pointer hover:bg-secondary focus:bg-secondary"
                   >
                     <Plus className="mr-2 h-4 w-4" />
