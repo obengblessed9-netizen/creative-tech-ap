@@ -114,9 +114,9 @@ const artistSteps: ArtistStep[] = [
     title: "Get Feedback",
     desc: "Join art communities and share your work for critique. Feedback and comparing your current work only to your previous work helps steady improvement. Be open to constructive criticism.",
     topics: ["feedback"],
+    videoId: "UrV6WPOasOo",
     videoTitle: "How To Get & Use Art Critique",
     source: "YouTube",
-    watchUrl: "https://www.youtube.com/results?search_query=how+to+get+art+critique+feedback",
   },
   {
     number: 6,
