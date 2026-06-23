@@ -99,9 +99,24 @@ const ArtistDashboard = () => {
 
   const confirmDeleteArtwork = async () => {
     if (!deletingArtworkId) return;
+    const { data: art } = await supabase
+      .from("artworks")
+      .select("image_url")
+      .eq("id", deletingArtworkId)
+      .single();
     const { error } = await supabase.from("artworks").delete().eq("id", deletingArtworkId);
-    if (error) toast.error("Delete failed");
-    else {
+    if (error) {
+      toast.error("Delete failed");
+    } else {
+      if (art?.image_url) {
+        try {
+          const urlObj = new URL(art.image_url);
+          const path = urlObj.pathname.split("/").pop();
+          if (path) {
+            await supabase.storage.from("artwork-images").remove([path]);
+          }
+        } catch (_) {}
+      }
       toast.success("Artwork deleted");
       setArtworks(prev => prev.filter(a => a.id !== deletingArtworkId));
     }

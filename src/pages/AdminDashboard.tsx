@@ -48,6 +48,7 @@ const AdminDashboard = () => {
   const [artists, setArtists] = useState<DbArtist[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
+  const [showDeleteAllArtistsDialog, setShowDeleteAllArtistsDialog] = useState(false);
 
   // Form state
   const [showForm, setShowForm] = useState(false);
@@ -151,9 +152,51 @@ const AdminDashboard = () => {
 
   const handleDeleteAll = async () => {
     setShowDeleteAllDialog(false);
-    const { error } = await supabase.from("artworks").delete();
+    // Fetch all artworks to get image URLs
+    const { data: allArt } = await supabase.from("artworks").select("image_url");
+    const paths: string[] = [];
+    allArt?.forEach((art) => {
+      if (art.image_url) {
+        try {
+          const urlObj = new URL(art.image_url);
+          const path = urlObj.pathname.split("/").pop();
+          if (path) paths.push(path);
+        } catch (_) {}
+      }
+    });
+    const { error } = await supabase.from("artworks").delete().neq("id", "00000000-0000-0000-0000-000000000000"); // Using a dummy filter to satisfy type safety if needed, or simply delete all
     if (error) { toast.error("Delete all failed"); return; }
-    toast.success("All artworks deleted");
+    // Remove images from storage if any
+    if (paths.length > 0) {
+      const { error: storageError } = await supabase.storage.from("artwork-images").remove(paths);
+      if (storageError) console.error("Failed to delete images:", storageError);
+    }
+    toast.success("All artworks and images deleted");
+    fetchData();
+  };
+
+  // New function to delete all artists and their images
+  const handleDeleteAllArtists = async () => {
+    setShowDeleteAllArtistsDialog(false);
+    // Get all artists with image URLs
+    const { data: allArtists } = await supabase.from("artists").select("image_url");
+    const paths: string[] = [];
+    allArtists?.forEach((artist) => {
+      if (artist.image_url) {
+        try {
+          const urlObj = new URL(artist.image_url);
+          const p = urlObj.pathname.split("/").pop();
+          if (p) paths.push(p);
+        } catch (_) {}
+      }
+    });
+    const { error } = await supabase.from("artists").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    if (error) { toast.error("Delete all artists failed"); return; }
+    if (paths.length > 0) {
+      const { error: storageError } = await supabase.storage.from("artist-images").remove(paths);
+      if (storageError) console.error("Failed to delete artist images:", storageError);
+    }
+    toast.success("All artists and images deleted");
     fetchData();
   };
 
@@ -242,9 +285,15 @@ const AdminDashboard = () => {
           {/* Delete All button */}
           {!showForm && tab === "artworks" && isAdmin && (
             <Button variant="destructive" onClick={() => setShowDeleteAllDialog(true)} className="mt-6 ml-2 bg-destructive text-destructive-foreground">
-              Delete All Artworks
+                Delete All Artworks
             </Button>
           )}
+          {!showForm && tab === "artists" && isAdmin && (
+            <Button variant="destructive" onClick={() => setShowDeleteAllArtistsDialog(true)} className="mt-6 ml-2 bg-destructive text-destructive-foreground">
+              Delete All Artists
+            </Button>
+          )}
+
           {/* Delete All Confirmation Dialog */}
           <AlertDialog open={showDeleteAllDialog} onOpenChange={setShowDeleteAllDialog}>
             <AlertDialogContent>
@@ -258,6 +307,23 @@ const AdminDashboard = () => {
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction onClick={handleDeleteAll} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                   Yes, delete all
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          {/* Delete All Artists Dialog */}
+          <AlertDialog open={showDeleteAllArtistsDialog} onOpenChange={setShowDeleteAllArtistsDialog}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete All Artists?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete every artist profile and their stored images. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteAllArtists} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Yes, delete all artists
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
