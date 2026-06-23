@@ -8,6 +8,7 @@ import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { stylizeImage, loadImage, STYLES, PALETTE_OPTIONS, type StyleId, type PaletteId } from "@/lib/stylizeImage";
 import {
   Brush,
@@ -119,6 +120,7 @@ const RequestArtwork = () => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [budget, setBudget] = useState("");
+  const [requestCategory, setRequestCategory] = useState("");
   const [refFiles, setRefFiles] = useState<File[]>([]);
   const [refPreviews, setRefPreviews] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -189,6 +191,7 @@ const RequestArtwork = () => {
         if (d.description) setDescription(d.description);
         if (d.budget) setBudget(d.budget);
         if (d.category) setCategory(d.category);
+        if (d.requestCategory) setRequestCategory(d.requestCategory);
         if (d.color) setColor(d.color);
         if (typeof d.size === "number") setSize(d.size);
         if (typeof d.opacity === "number") setOpacity(d.opacity);
@@ -225,13 +228,13 @@ const RequestArtwork = () => {
       try {
         localStorage.setItem(
           DRAFT_KEY,
-          JSON.stringify({ title, description, budget, category, color, size, opacity })
+          JSON.stringify({ title, description, budget, category, requestCategory, color, size, opacity })
         );
         setSavedAt(Date.now());
       } catch {}
     }, 600);
     return () => clearTimeout(t);
-  }, [title, description, budget, category, color, size, opacity]);
+  }, [title, description, budget, category, requestCategory, color, size, opacity]);
 
   // Auto-save sketch (throttled via timer; runs on history changes = after each stroke)
   useEffect(() => {
@@ -1480,6 +1483,26 @@ const RequestArtwork = () => {
                       placeholder="e.g. Portrait of my grandmother"
                       className="mt-1 bg-background border-border"
                     />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label className="text-foreground">Artwork Category</Label>
+                    <Select value={requestCategory} onValueChange={setRequestCategory}>
+                      <SelectTrigger id="req-category" className="mt-1 bg-background border-border text-foreground">
+                        <SelectValue placeholder="Select a category (optional)" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-72">
+                        <SelectItem value="Prints & Merchandise">🖼️ Prints &amp; Merchandise</SelectItem>
+                        <SelectItem value="Portrait Painting">🧑‍🎨 Portrait Painting</SelectItem>
+                        <SelectItem value="Landscape Painting">🏞️ Landscape Painting</SelectItem>
+                        <SelectItem value="Seascape Painting">🌊 Seascape Painting</SelectItem>
+                        <SelectItem value="Still Life Painting">🍎 Still Life Painting</SelectItem>
+                        <SelectItem value="Historical Painting">🏛️ Historical Painting</SelectItem>
+                        <SelectItem value="Religious Painting">✝️ Religious Painting</SelectItem>
+                        <SelectItem value="Genre Painting">🎭 Genre Painting</SelectItem>
+                        <SelectItem value="Animal Painting">🐾 Animal Painting</SelectItem>
+                        <SelectItem value="Artistic Style">🎨 Artistic Style</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="sm:col-span-2">
                     <Label htmlFor="req-desc" className="text-foreground">Description</Label>
