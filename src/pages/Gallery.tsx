@@ -47,6 +47,15 @@ const Gallery = () => {
 
   const categoryGroups = [
     { label: "🖼️ Prints & Merchandise", options: ["T-Shirt Designs", "Sticker Designs", "Wall Art Prints"] },
+    { label: "🧑‍🎨 Portrait Painting", options: ["Portrait Painting"] },
+    { label: "🏞️ Landscape Painting", options: ["Landscape Painting"] },
+    { label: "🌊 Seascape Painting", options: ["Seascape Painting"] },
+    { label: "🍎 Still Life Painting", options: ["Still Life Painting"] },
+    { label: "🏛️ Historical Painting", options: ["Historical Painting"] },
+    { label: "✝️ Religious Painting", options: ["Religious Painting"] },
+    { label: "🎭 Genre Painting", options: ["Genre Painting"] },
+    { label: "🐾 Animal Painting", options: ["Animal Painting"] },
+    { label: "🎨 Artistic Style", options: ["Artistic Style"] },
   ];
   const allCategories = categoryGroups.flatMap((g) => g.options);
   const usedCategories = allCategories.filter((c) => artworks.some((a) => a.category === c));

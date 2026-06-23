@@ -18,6 +18,15 @@ import EditArtworkDialog from "@/components/EditArtworkDialog";
 
 const categoryGroups = [
   { emoji: "🖼️", label: "Prints & Merchandise", subcategories: ["T-Shirt Designs", "Sticker Designs", "Wall Art Prints"] },
+  { emoji: "🧑‍🎨", label: "Portrait Painting", subcategories: ["Portrait Painting"] },
+  { emoji: "🏞️", label: "Landscape Painting", subcategories: ["Landscape Painting"] },
+  { emoji: "🌊", label: "Seascape Painting", subcategories: ["Seascape Painting"] },
+  { emoji: "🍎", label: "Still Life Painting", subcategories: ["Still Life Painting"] },
+  { emoji: "🏛️", label: "Historical Painting", subcategories: ["Historical Painting"] },
+  { emoji: "✝️", label: "Religious Painting", subcategories: ["Religious Painting"] },
+  { emoji: "🎭", label: "Genre Painting", subcategories: ["Genre Painting"] },
+  { emoji: "🐾", label: "Animal Painting", subcategories: ["Animal Painting"] },
+  { emoji: "🎨", label: "Artistic Style", subcategories: ["Artistic Style"] },
 ];
 
 const infoCards = [
