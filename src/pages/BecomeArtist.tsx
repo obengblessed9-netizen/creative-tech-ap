@@ -154,9 +154,9 @@ const artistSteps: ArtistStep[] = [
     title: "Learn the Business Side",
     desc: "Study how professional artists market themselves, price their work, and build an audience through social media and commissions. Art is a craft; selling it is a skill.",
     topics: ["business"],
+    videoId: "Z4_NJUExX0A",
     videoTitle: "The Business of Being an Artist",
     source: "YouTube",
-    watchUrl: "https://www.youtube.com/results?search_query=business+of+being+an+artist+pricing+marketing",
   },
   {
     number: 10,
