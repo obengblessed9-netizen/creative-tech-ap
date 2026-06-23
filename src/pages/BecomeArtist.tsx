@@ -134,9 +134,9 @@ const artistSteps: ArtistStep[] = [
     title: "Promote Your Work",
     desc: "Artists who consistently share artwork online can grow audiences and create professional opportunities. Use social media, art platforms, and your own website to reach collectors and fans.",
     topics: ["business"],
+    videoId: "wXVkMtKl9DA",
     videoTitle: "How To Promote Your Art Online",
     source: "YouTube",
-    watchUrl: "https://www.youtube.com/results?search_query=how+to+promote+your+art+online",
   },
   {
     number: 8,
