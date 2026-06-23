@@ -164,9 +164,9 @@ const artistSteps: ArtistStep[] = [
     title: "Never Stop Learning",
     desc: "Experienced artists consistently emphasize that improvement comes from ongoing practice, experimentation, and learning from others. Take courses, attend workshops, and always stay curious.",
     topics: ["learning"],
+    videoId: "K3H71eisPPg",
     videoTitle: "Lifelong Learning for Artists",
     source: "YouTube",
-    watchUrl: "https://www.youtube.com/results?search_query=lifelong+learning+for+artists+improvement",
   },
 ];
 
