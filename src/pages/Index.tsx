@@ -14,6 +14,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import EditArtworkDialog from "@/components/EditArtworkDialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 
 const categoryGroups = [
@@ -49,6 +59,7 @@ const Index = () => {
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
   const [editingArtworkId, setEditingArtworkId] = useState<string | null>(null);
+  const [deletingArtworkId, setDeletingArtworkId] = useState<string | null>(null);
 
   useEffect(() => {
     localStorage.setItem("heroVideoEnabled", String(videoEnabled));
@@ -105,13 +116,18 @@ const Index = () => {
   };
 
   const handleDeleteArtwork = async (id: string) => {
-    if (!confirm("Delete this artwork?")) return;
-    const { error } = await supabase.from("artworks").delete().eq("id", id);
+    setDeletingArtworkId(id);
+  };
+
+  const confirmDeleteArtwork = async () => {
+    if (!deletingArtworkId) return;
+    const { error } = await supabase.from("artworks").delete().eq("id", deletingArtworkId);
     if (error) toast.error("Delete failed");
     else {
       toast.success("Artwork deleted");
-      setTrendingArtworks(prev => prev.filter(a => a.id !== id));
+      setTrendingArtworks(prev => prev.filter(a => a.id !== deletingArtworkId));
     }
+    setDeletingArtworkId(null);
   };
 
   return (
@@ -298,6 +314,23 @@ const Index = () => {
           }}
         />
       )}
+
+      <AlertDialog open={!!deletingArtworkId} onOpenChange={(open) => !open && setDeletingArtworkId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete this artwork from the gallery.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>No, cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteArtwork} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Yes, delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
