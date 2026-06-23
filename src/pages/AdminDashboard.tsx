@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -47,6 +47,7 @@ const AdminDashboard = () => {
   const [artworks, setArtworks] = useState<DbArtwork[]>([]);
   const [artists, setArtists] = useState<DbArtist[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
 
   // Form state
   const [showForm, setShowForm] = useState(false);
@@ -148,6 +149,14 @@ const AdminDashboard = () => {
     fetchData();
   };
 
+  const handleDeleteAll = async () => {
+    setShowDeleteAllDialog(false);
+    const { error } = await supabase.from("artworks").delete();
+    if (error) { toast.error("Delete all failed"); return; }
+    toast.success("All artworks deleted");
+    fetchData();
+  };
+
   const resetForm = () => {
     setShowForm(false);
     setEditingId(null);
@@ -229,6 +238,30 @@ const AdminDashboard = () => {
               <Plus className="mr-2 h-4 w-4" /> Add {tab === "artworks" ? "Artwork" : "Artist"}
             </Button>
           )}
+
+          {/* Delete All button */}
+          {!showForm && tab === "artworks" && isAdmin && (
+            <Button variant="destructive" onClick={() => setShowDeleteAllDialog(true)} className="mt-6 ml-2 bg-destructive text-destructive-foreground">
+              Delete All Artworks
+            </Button>
+          )}
+          {/* Delete All Confirmation Dialog */}
+          <AlertDialog open={showDeleteAllDialog} onOpenChange={setShowDeleteAllDialog}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete All Artworks?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete every artwork from the database and cannot be undone. Are you absolutely sure you want to proceed?
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteAll} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Yes, delete all
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
 
           {/* Reviews Tab */}
           {tab === "reviews" && isAdmin && (
