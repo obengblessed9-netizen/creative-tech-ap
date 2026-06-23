@@ -9,6 +9,16 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import EditArtworkDialog from "@/components/EditArtworkDialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Pencil, Trash2, Eye, Heart, Share2, Plus, Package, BarChart3,
   MessageCircle, Users, Image as ImageIcon, DollarSign, Mail, CheckCircle
 } from "lucide-react";
@@ -46,6 +56,7 @@ const ArtistDashboard = () => {
   const [followerCount, setFollowerCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [editingArtworkId, setEditingArtworkId] = useState<string | null>(null);
+  const [deletingArtworkId, setDeletingArtworkId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth");
@@ -82,14 +93,19 @@ const ArtistDashboard = () => {
     fetchData();
   }, [user]);
 
-  const handleDeleteArtwork = async (id: string) => {
-    if (!confirm("Delete this artwork?")) return;
-    const { error } = await supabase.from("artworks").delete().eq("id", id);
+  const handleDeleteArtwork = (id: string) => {
+    setDeletingArtworkId(id);
+  };
+
+  const confirmDeleteArtwork = async () => {
+    if (!deletingArtworkId) return;
+    const { error } = await supabase.from("artworks").delete().eq("id", deletingArtworkId);
     if (error) toast.error("Delete failed");
     else {
       toast.success("Artwork deleted");
-      setArtworks(prev => prev.filter(a => a.id !== id));
+      setArtworks(prev => prev.filter(a => a.id !== deletingArtworkId));
     }
+    setDeletingArtworkId(null);
   };
 
   const handleMarkSold = async (id: string) => {
@@ -273,6 +289,23 @@ const ArtistDashboard = () => {
       )}
 
       <Footer />
+
+      <AlertDialog open={!!deletingArtworkId} onOpenChange={(open) => !open && setDeletingArtworkId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete this artwork and remove its data from our servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteArtwork} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Yes, delete artwork
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
