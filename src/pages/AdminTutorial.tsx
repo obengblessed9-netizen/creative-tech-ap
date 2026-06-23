@@ -325,7 +325,7 @@ export default function AdminTutorial() {
             <Input
               value={youtubeInput}
               onChange={(e) => setYoutubeInput(e.target.value)}
-              placeholder="https://youtube.com/watch?v=ZK3pV2bcfPg"
+              placeholder="https://youtube.com/watch?v=TfAZt3O0sLY"
             />
             <Button onClick={handleSaveYoutube} disabled={!youtubeInput || saving} variant="outline">
               <Save className="mr-2 h-4 w-4" /> Save YouTube tutorial

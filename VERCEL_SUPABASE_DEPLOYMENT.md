@@ -80,3 +80,37 @@ If you configure production Google/Apple OAuth to replace the sandbox bypass:
 1. Visit your Vercel deployment URL.
 2. Verify that you can view the gallery collection, browse items, and navigate between sub-routes without 404 errors (handled by the newly created [vercel.json](file:///c:/Users/obeng/Desktop/creative-tech-app-2c0e0e8f-main/vercel.json)).
 3. Test signing up/signing in using a real email and password to verify database read/write connectivity.
+
+---
+
+## 💳 Step 6: Configure Payment Gateways (Paystack & PaySwitch)
+
+To process payments securely using the Supabase Edge Functions, you must add your payment provider keys to Supabase Secrets.
+
+### PaySwitch (TheTeller) Configuration
+1. Obtain your `Merchant ID`, `API User`, and `API Key` from your PaySwitch/TheTeller merchant dashboard.
+2. Open your local terminal and link your Supabase project (if not already done).
+3. Set the secrets using the Supabase CLI:
+   ```bash
+   supabase secrets set PAYSWITCH_MERCHANT_ID=your_merchant_id
+   supabase secrets set PAYSWITCH_API_USER=your_api_user
+   supabase secrets set PAYSWITCH_API_KEY=your_api_key
+   ```
+4. Deploy your new Edge Functions to Supabase:
+   ```bash
+   supabase functions deploy payswitch-init
+   supabase functions deploy payswitch-verify
+   ```
+
+### Paystack Configuration
+1. Obtain your `Secret Key` from your Paystack dashboard.
+2. Set the secret using the Supabase CLI:
+   ```bash
+   supabase secrets set PAYSTACK_SECRET_KEY=sk_test_...
+   ```
+3. Deploy the Paystack Edge Functions to Supabase:
+   ```bash
+   supabase functions deploy paystack-init
+   supabase functions deploy paystack-verify
+   supabase functions deploy paystack-webhook
+   ```

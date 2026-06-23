@@ -59,6 +59,13 @@ const Navbar = () => {
     navigate("/");
   };
 
+  // Listen for "Place Order" events from ArtworkCard to auto-open the cart
+  useEffect(() => {
+    const openCart = () => setCartOpen(true);
+    window.addEventListener("open-cart-drawer", openCart);
+    return () => window.removeEventListener("open-cart-drawer", openCart);
+  }, []);
+
   return (
     <>
       <nav className="fixed top-0 left-0 right-0 z-40 border-b border-border/50 bg-background/80 backdrop-blur-xl">

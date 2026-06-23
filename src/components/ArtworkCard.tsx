@@ -1,6 +1,9 @@
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Heart, Pencil, Trash2, MoreHorizontal, Plus } from "lucide-react";
 import { useFavorites } from "@/contexts/FavoritesContext";
+import { useCart } from "@/contexts/CartContext";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,8 +37,11 @@ interface ArtworkCardProps {
 
 const ArtworkCard = ({ artwork, index = 0, onEdit, onDelete }: ArtworkCardProps) => {
   const { isFavorite, toggleFavorite } = useFavorites();
+  const { isInCart } = useCart();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const favorited = isFavorite(artwork.id);
+  const alreadyInCart = isInCart(artwork.id);
 
   const handleFavorite = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -43,19 +49,27 @@ const ArtworkCard = ({ artwork, index = 0, onEdit, onDelete }: ArtworkCardProps)
     toggleFavorite(artwork.id);
   };
 
-  const handlePlaceOrder = (e: React.MouseEvent) => {
+  const handlePlaceOrderClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    toast.success(`Order request placed for "${artwork.title}". The artist will contact you soon!`);
+    if (!user) {
+      toast.error("Please sign in to place an order");
+      navigate("/auth");
+      return;
+    }
+    if (!artwork.available) {
+      toast.error("This artwork is sold out");
+      return;
+    }
+    navigate(`/order/${artwork.id}`, { state: { artwork } });
   };
 
   return (
-    <Link
-      to={`/artwork/${artwork.id}`}
+    <div
       className="group block animate-fade-in"
       style={{ animationDelay: `${index * 100}ms` }}
     >
-      <div className="relative overflow-hidden rounded-lg bg-card">
+      <Link to={`/artwork/${artwork.id}`} className="relative block overflow-hidden rounded-lg bg-card">
         <div className="aspect-[3/4] overflow-hidden">
           <img
             src={artwork.image || "/placeholder.svg"}
@@ -131,22 +145,25 @@ const ArtworkCard = ({ artwork, index = 0, onEdit, onDelete }: ArtworkCardProps)
           <h3 className="font-display text-lg font-semibold text-foreground">{artwork.title}</h3>
           <p className="text-sm text-muted-foreground">${artwork.price.toLocaleString()}</p>
         </div>
-      </div>
+      </Link>
       <div className="mt-3 transition-opacity duration-300">
-        <h3 className="font-display text-base font-medium text-foreground">{artwork.title}</h3>
-        <p className="text-sm text-muted-foreground">{artwork.artist}</p>
+        <Link to={`/artwork/${artwork.id}`} className="block">
+          <h3 className="font-display text-base font-medium text-foreground hover:text-primary transition-colors">{artwork.title}</h3>
+          <p className="text-sm text-muted-foreground hover:text-foreground transition-colors">{artwork.artist}</p>
+        </Link>
         <div className="mt-2 flex items-center justify-between">
           <p className="text-sm font-medium text-primary">${artwork.price.toLocaleString()}</p>
-          <Button 
-            onClick={handlePlaceOrder}
-            size="sm" 
-            className="bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground"
+          <Button
+            onClick={handlePlaceOrderClick}
+            size="sm"
+            disabled={!artwork.available || alreadyInCart}
+            className="bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground disabled:opacity-50"
           >
-            Place Order
+            {alreadyInCart ? "In Cart" : artwork.available ? "Place Order" : "Sold Out"}
           </Button>
         </div>
       </div>
-    </Link>
+    </div>
   );
 };
 

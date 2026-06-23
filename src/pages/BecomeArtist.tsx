@@ -187,7 +187,8 @@ interface TutorialSettings {
   youtubeId?: string;
 }
 
-const DEFAULT_YOUTUBE_ID = "ZK3pV2bcfPg";
+const DEFAULT_YOUTUBE_ID = "BMUxMP4bSTs"; // How to Become an Artist — confirmed playing
+const BROKEN_YOUTUBE_IDS = ["ZK3pV2bcfPg", "TfAZt3O0sLY", "zL7L59iM66k"];
 const LS_COMPLETED = "agms.becomeArtist.completed";
 const LS_BOOKMARKS = "agms.becomeArtist.bookmarks";
 
@@ -275,6 +276,10 @@ const BecomeArtist = () => {
       .maybeSingle()
       .then(({ data }) => {
         const v = (data?.value as TutorialSettings) || {};
+        // Skip known-broken YouTube IDs — fall back to the working default
+        if (v.youtubeId && BROKEN_YOUTUBE_IDS.includes(v.youtubeId)) {
+          v.youtubeId = DEFAULT_YOUTUBE_ID;
+        }
         if (v.videoUrl || v.youtubeId) setTutorial(v);
       });
   }, []);
@@ -353,8 +358,8 @@ const BecomeArtist = () => {
               ) : (
                 <iframe
                   className="absolute inset-0 h-full w-full"
-                  src={`https://www.youtube.com/embed/${tutorial.youtubeId || DEFAULT_YOUTUBE_ID}?cc_load_policy=1&hl=en&cc_lang_pref=en`}
-                  title="How to Become an Artist - Tutorial with captions"
+                  src={`https://www.youtube.com/embed/${tutorial.youtubeId || DEFAULT_YOUTUBE_ID}?cc_load_policy=1&hl=en&cc_lang_pref=en&rel=0&modestbranding=1`}
+                  title="How to Become an Artist — LEARN ART ON YOUR OWN: Complete Beginner Guide"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   allowFullScreen
                 />

@@ -10,7 +10,7 @@ import { useCart } from "@/contexts/CartContext";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
-type PaymentMethod = "mobile_money" | "card" | "bank_transfer" | "pay_on_delivery" | "paystack";
+type PaymentMethod = "mobile_money" | "card" | "bank_transfer" | "pay_on_delivery" | "paystack" | "payswitch";
 type MobileProvider = "mtn" | "vodafone" | "airteltigo";
 type CardType = "visa" | "mastercard" | "verve";
 
@@ -35,32 +35,57 @@ const Payment = () => {
   const [method, setMethod] = useState<PaymentMethod>("mobile_money");
   const [processing, setProcessing] = useState(false);
   const [paystackLoading, setPaystackLoading] = useState(false);
+  const [payswitchLoading, setPayswitchLoading] = useState(false);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
   const receiptRef = useRef<HTMLDivElement>(null);
 
   // Verify Paystack callback on return
   useEffect(() => {
     const url = new URL(window.location.href);
-    const reference = url.searchParams.get("reference") || url.searchParams.get("trxref");
+    const provider = url.searchParams.get("provider");
+    const reference = url.searchParams.get("reference") || url.searchParams.get("trxref") || url.searchParams.get("transaction_id");
+    
     if (!reference) return;
+
     (async () => {
-      const { data, error } = await supabase.functions.invoke("paystack-verify", { body: { reference } });
-      if (error || !data?.success) {
-        toast.error("Payment verification failed.");
+      if (provider === "payswitch" || url.searchParams.has("transaction_id")) {
+        const { data, error } = await supabase.functions.invoke("payswitch-verify", { body: { reference } });
+        if (error || !data?.success) {
+          toast.error("PaySwitch payment verification failed.");
+        } else {
+          toast.success(`PaySwitch payment confirmed (${data.reference})`);
+          setReceipt({
+            code: `AGMS-${data.reference.slice(-8).toUpperCase()}`,
+            method: "PaySwitch",
+            details: { Reference: data.reference, Currency: data.currency || "GHS" },
+            items: items.map((i) => ({ title: i.artwork?.title ?? "Artwork", price: i.artwork?.price ?? 0 })),
+            total: data.amount ?? totalPrice,
+            date: new Date().toLocaleString(),
+          });
+          clearCart();
+        }
       } else {
-        toast.success(`Paystack payment confirmed (${data.reference})`);
-        setReceipt({
-          code: `AGMS-${data.reference.slice(-8).toUpperCase()}`,
-          method: "Paystack",
-          details: { Reference: data.reference, Currency: data.currency || "GHS" },
-          items: items.map((i) => ({ title: i.artwork?.title ?? "Artwork", price: i.artwork?.price ?? 0 })),
-          total: data.amount ?? totalPrice,
-          date: new Date().toLocaleString(),
-        });
-        clearCart();
+        const { data, error } = await supabase.functions.invoke("paystack-verify", { body: { reference } });
+        if (error || !data?.success) {
+          toast.error("Payment verification failed.");
+        } else {
+          toast.success(`Paystack payment confirmed (${data.reference})`);
+          setReceipt({
+            code: `AGMS-${data.reference.slice(-8).toUpperCase()}`,
+            method: "Paystack",
+            details: { Reference: data.reference, Currency: data.currency || "GHS" },
+            items: items.map((i) => ({ title: i.artwork?.title ?? "Artwork", price: i.artwork?.price ?? 0 })),
+            total: data.amount ?? totalPrice,
+            date: new Date().toLocaleString(),
+          });
+          clearCart();
+        }
       }
+
       url.searchParams.delete("reference");
       url.searchParams.delete("trxref");
+      url.searchParams.delete("transaction_id");
+      url.searchParams.delete("provider");
       window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""));
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -90,6 +115,30 @@ const Payment = () => {
     }
   };
 
+  const handlePaySwitch = async () => {
+    if (totalPrice <= 0) { toast.error("Your cart is empty."); return; }
+    setPayswitchLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("payswitch-init", {
+        body: {
+          amount: totalPrice,
+          currency: "GHS",
+          callback_url: `${window.location.origin}/payment?provider=payswitch`,
+          metadata: { items: items.map((i) => ({ id: i.artwork?.id, title: i.artwork?.title })) },
+        },
+      });
+      if (error || !data?.authorization_url) {
+        toast.error(error?.message || "Could not start PaySwitch checkout.");
+        setPayswitchLoading(false);
+        return;
+      }
+      window.location.href = data.authorization_url;
+    } catch (e) {
+      toast.error((e as Error).message);
+      setPayswitchLoading(false);
+    }
+  };
+
   // Form fields
   const [address, setAddress] = useState("");
 
@@ -100,6 +149,7 @@ const Payment = () => {
       bank_transfer: "Bank Transfer",
       pay_on_delivery: "Pay on Delivery",
       paystack: "Paystack",
+      payswitch: "PaySwitch",
     };
     return map[m];
   };
@@ -114,6 +164,10 @@ const Payment = () => {
   };
 
   const handleSubmit = async () => {
+    if (method === "payswitch") {
+      await handlePaySwitch();
+      return;
+    }
     if (method !== "pay_on_delivery") { 
       await handlePaystack(); 
       return; 
@@ -150,6 +204,7 @@ const Payment = () => {
   };
 
   const methods: { id: PaymentMethod; label: string; icon: React.ReactNode; desc: string }[] = [
+    { id: "payswitch", label: "PaySwitch (TheTeller)", icon: <Zap className="h-5 w-5 text-blue-500" />, desc: "Secure payments via PaySwitch/TheTeller in Ghana." },
     { id: "paystack", label: "Paystack", icon: <Zap className="h-5 w-5" />, desc: "Pay securely with card, MoMo, or bank via Paystack." },
     { id: "mobile_money", label: "Mobile Money", icon: <Smartphone className="h-5 w-5" />, desc: "Fast and secure payments directly from your mobile wallet." },
     { id: "card", label: "Debit / Credit Card", icon: <CreditCard className="h-5 w-5" />, desc: "Safe online card payments with encrypted protection." },
@@ -311,6 +366,14 @@ const Payment = () => {
                   </div>
                   <p className="text-xs text-muted-foreground italic">
                     You'll be redirected to Paystack's secure checkout. Tap "Confirm Payment" to continue.
+                  </p>
+                </div>
+              )}
+
+              {method === m.id && m.id === "payswitch" && (
+                <div className="mt-4 ml-13 space-y-2" onClick={(e) => e.stopPropagation()}>
+                  <p className="text-sm text-muted-foreground italic">
+                    You'll be redirected to PaySwitch (TheTeller) secure checkout. Tap "Confirm Payment" to continue.
                   </p>
                 </div>
               )}

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,7 +22,61 @@ const VerificationDialog = ({ open, onClose, artistId, userId, onVerified }: Ver
   const [selfieData, setSelfieData] = useState<string | null>(null);
   const [idCardData, setIdCardData] = useState<string | null>(null);
   const [result, setResult] = useState<any>(null);
-  const selfieInputRef = useRef<HTMLInputElement>(null);
+
+  // Web camera state
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  // Stop any running stream
+  const stopStream = useCallback(() => {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+  }, []);
+
+  // Start the getUserMedia stream
+  const startStream = useCallback(async () => {
+    setCameraError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+    } catch (err: any) {
+      const msg =
+        err?.name === "NotAllowedError"
+          ? "Camera permission denied. Please allow camera access and try again."
+          : err?.name === "NotFoundError"
+          ? "No camera found on this device."
+          : err?.message || "Could not open camera.";
+      setCameraError(msg);
+      toast.error(msg);
+    }
+  }, []);
+
+  // When camera overlay opens, start stream
+  useEffect(() => {
+    if (cameraOpen) {
+      startStream();
+    } else {
+      stopStream();
+    }
+    return () => stopStream();
+  }, [cameraOpen, startStream, stopStream]);
+
+  // Close stream when dialog closes
+  useEffect(() => {
+    if (!open) {
+      stopStream();
+      setCameraOpen(false);
+    }
+  }, [open, stopStream]);
 
   const takeSelfie = async () => {
     // Native: use Capacitor Camera (real phone camera, front-facing)
@@ -43,21 +97,26 @@ const VerificationDialog = ({ open, onClose, artistId, userId, onVerified }: Ver
       }
       return;
     }
-    // Web: open native camera app via file input with capture="user"
-    selfieInputRef.current?.click();
+    // Web: open live camera overlay
+    setCameraOpen(true);
   };
 
-  const handleSelfieFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("File too large. Max 10MB.");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => setSelfieData(reader.result as string);
-    reader.readAsDataURL(file);
+  const captureSnapshot = () => {
+    if (!videoRef.current) return;
+    const video = videoRef.current;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    // Mirror the image so it's not flipped
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    setSelfieData(dataUrl);
+    setCameraOpen(false);
+    toast.success("Photo captured!");
   };
 
   const handleIdCardUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -133,6 +192,8 @@ const VerificationDialog = ({ open, onClose, artistId, userId, onVerified }: Ver
   };
 
   const handleClose = () => {
+    stopStream();
+    setCameraOpen(false);
     setStep("selfie");
     setSelfieData(null);
     setIdCardData(null);
@@ -155,30 +216,61 @@ const VerificationDialog = ({ open, onClose, artistId, userId, onVerified }: Ver
 
         {step === "selfie" && (
           <div className="space-y-4">
-            <input
-              ref={selfieInputRef}
-              type="file"
-              accept="image/*"
-              capture="user"
-              className="hidden"
-              onChange={handleSelfieFile}
-            />
-            {selfieData ? (
+            {/* Live camera overlay */}
+            {cameraOpen && (
               <div className="space-y-3">
-                <img src={selfieData} alt="Selfie preview" className="w-full rounded-lg border border-border" />
+                <div className="relative rounded-lg overflow-hidden bg-black aspect-video">
+                  {cameraError ? (
+                    <div className="flex h-full items-center justify-center text-center p-4">
+                      <p className="text-sm text-destructive">{cameraError}</p>
+                    </div>
+                  ) : (
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full h-full object-cover"
+                      style={{ transform: "scaleX(-1)" }}
+                    />
+                  )}
+                </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => { setSelfieData(null); takeSelfie(); }} className="flex-1 border-border text-foreground">
-                    Retake
+                  <Button
+                    onClick={captureSnapshot}
+                    disabled={!!cameraError}
+                    className="flex-1 bg-gradient-gold text-primary-foreground shadow-gold"
+                  >
+                    <Camera className="mr-2 h-4 w-4" /> Capture
                   </Button>
-                  <Button onClick={() => setStep("id_card")} className="flex-1 bg-gradient-gold text-primary-foreground shadow-gold">
-                    Continue
+                  <Button variant="outline" onClick={() => setCameraOpen(false)} className="border-border text-foreground">
+                    Cancel
                   </Button>
                 </div>
               </div>
-            ) : (
-              <Button onClick={takeSelfie} className="w-full bg-gradient-gold text-primary-foreground shadow-gold">
-                <Camera className="mr-2 h-4 w-4" /> Take Selfie
-              </Button>
+            )}
+
+            {/* Preview / take selfie buttons */}
+            {!cameraOpen && (
+              <>
+                {selfieData ? (
+                  <div className="space-y-3">
+                    <img src={selfieData} alt="Selfie preview" className="w-full rounded-lg border border-border" />
+                    <div className="flex gap-2">
+                      <Button variant="outline" onClick={() => { setSelfieData(null); takeSelfie(); }} className="flex-1 border-border text-foreground">
+                        Retake
+                      </Button>
+                      <Button onClick={() => setStep("id_card")} className="flex-1 bg-gradient-gold text-primary-foreground shadow-gold">
+                        Continue
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button onClick={takeSelfie} className="w-full bg-gradient-gold text-primary-foreground shadow-gold">
+                    <Camera className="mr-2 h-4 w-4" /> Take Selfie
+                  </Button>
+                )}
+              </>
             )}
           </div>
         )}

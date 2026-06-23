@@ -79,9 +79,17 @@ const ArtworkDetail = () => {
   const inCart = isInCart(artwork.id);
   const allImages = [artwork.image_url, ...(artwork.additional_images || [])].filter(Boolean) as string[];
 
-  const handleAddToCart = () => {
-    if (!user) { toast.error("Please sign in first"); return; }
-    addToCart(artwork.id);
+  const handlePlaceOrderClick = () => {
+    if (!user) { 
+      toast.error("Please sign in first"); 
+      navigate("/auth");
+      return; 
+    }
+    if (!artwork.available) {
+      toast.error("This artwork is sold out");
+      return;
+    }
+    navigate(`/order/${artwork.id}`, { state: { artwork } });
   };
 
   return (
@@ -171,13 +179,13 @@ const ArtworkDetail = () => {
                   <Button
                     size="lg"
                     disabled={!artwork.available || inCart}
-                    onClick={handleAddToCart}
+                    onClick={handlePlaceOrderClick}
                     className="bg-gradient-gold text-primary-foreground shadow-gold hover:opacity-90 disabled:opacity-40"
                   >
                     {inCart ? (
                       <><Check className="mr-2 h-4 w-4" /> In Cart</>
                     ) : (
-                      <><ShoppingBag className="mr-2 h-4 w-4" /> {artwork.available ? "Add to Cart" : "Sold Out"}</>
+                      <><ShoppingBag className="mr-2 h-4 w-4" /> {artwork.available ? "Place Order" : "Sold Out"}</>
                     )}
                   </Button>
                 ) : (

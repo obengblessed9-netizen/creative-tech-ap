@@ -39,6 +39,7 @@ const RequestArtwork = lazy(() => import("./pages/RequestArtwork"));
 const MyArtworkRequests = lazy(() => import("./pages/MyArtworkRequests"));
 const AdminArtworkRequests = lazy(() => import("./pages/AdminArtworkRequests"));
 const AdminTutorial = lazy(() => import("./pages/AdminTutorial"));
+const OrderDetails = lazy(() => import("./pages/OrderDetails"));
 
 const queryClient = new QueryClient();
 
@@ -95,6 +96,7 @@ const App = () => {
                     <Route path="/my-requests" element={<ProtectedRoute><MyArtworkRequests /></ProtectedRoute>} />
                     <Route path="/admin/artwork-requests" element={<ProtectedRoute><AdminArtworkRequests /></ProtectedRoute>} />
                     <Route path="/admin/tutorial" element={<ProtectedRoute><AdminTutorial /></ProtectedRoute>} />
+                    <Route path="/order/:id" element={<ProtectedRoute><OrderDetails /></ProtectedRoute>} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>

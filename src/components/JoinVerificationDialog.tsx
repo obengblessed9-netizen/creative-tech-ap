@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,7 +20,57 @@ const JoinVerificationDialog = ({ open, onClose, onVerified }: Props) => {
   const [selfie, setSelfie] = useState<string | null>(null);
   const [idCard, setIdCard] = useState<string | null>(null);
   const [result, setResult] = useState<any>(null);
-  const selfieInputRef = useRef<HTMLInputElement>(null);
+
+  // Web camera state
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  const stopStream = useCallback(() => {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+  }, []);
+
+  const startStream = useCallback(async () => {
+    setCameraError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+    } catch (err: any) {
+      const msg =
+        err?.name === "NotAllowedError"
+          ? "Camera permission denied. Please allow camera access and try again."
+          : err?.name === "NotFoundError"
+          ? "No camera found on this device."
+          : err?.message || "Could not open camera.";
+      setCameraError(msg);
+      toast.error(msg);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (cameraOpen) {
+      startStream();
+    } else {
+      stopStream();
+    }
+    return () => stopStream();
+  }, [cameraOpen, startStream, stopStream]);
+
+  useEffect(() => {
+    if (!open) {
+      stopStream();
+      setCameraOpen(false);
+    }
+  }, [open, stopStream]);
 
   const takeSelfie = async () => {
     if (Capacitor.isNativePlatform()) {
@@ -43,17 +93,26 @@ const JoinVerificationDialog = ({ open, onClose, onVerified }: Props) => {
       }
       return;
     }
-    selfieInputRef.current?.click();
+    // Web: open live camera overlay
+    setCameraOpen(true);
   };
 
-  const handleSelfieFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    e.target.value = "";
-    if (!f) return;
-    if (f.size > 10 * 1024 * 1024) { toast.error("Max 10MB"); return; }
-    const r = new FileReader();
-    r.onload = () => { setSelfie(r.result as string); toast.success("Photo captured"); };
-    r.readAsDataURL(f);
+  const captureSnapshot = () => {
+    if (!videoRef.current) return;
+    const video = videoRef.current;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    // Mirror the image so it matches what the user sees
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    setSelfie(dataUrl);
+    setCameraOpen(false);
+    toast.success("Photo captured");
   };
 
   const handleId = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -87,7 +146,15 @@ const JoinVerificationDialog = ({ open, onClose, onVerified }: Props) => {
     }
   };
 
-  const close = () => { setStep("selfie"); setSelfie(null); setIdCard(null); setResult(null); onClose(); };
+  const close = () => {
+    stopStream();
+    setCameraOpen(false);
+    setStep("selfie");
+    setSelfie(null);
+    setIdCard(null);
+    setResult(null);
+    onClose();
+  };
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && close()}>
@@ -104,38 +171,68 @@ const JoinVerificationDialog = ({ open, onClose, onVerified }: Props) => {
         {step === "selfie" && (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">Step 1 — Take a selfie using your camera</p>
-            <input
-              ref={selfieInputRef}
-              type="file"
-              accept="image/*"
-              capture="user"
-              className="hidden"
-              onChange={handleSelfieFile}
-            />
-            <div className="aspect-video rounded-md overflow-hidden bg-secondary border border-border">
-              {selfie ? (
-                <img src={selfie} alt="Captured selfie" className="w-full h-full object-cover" />
-              ) : (
-                <div className="h-full flex flex-col items-center justify-center gap-2 text-muted-foreground text-sm">
-                  <Camera className="h-8 w-8" />
-                  No photo yet
-                </div>
-              )}
-            </div>
 
-            <div className="flex flex-wrap gap-2">
-              {selfie ? (
-                <>
-                  <Button onClick={() => setStep("id")} className="bg-gradient-gold text-primary-foreground">Use this photo</Button>
-                  <Button variant="outline" onClick={() => { setSelfie(null); takeSelfie(); }}><Camera className="mr-2 h-4 w-4" />Retake</Button>
-                </>
-              ) : (
-                <Button onClick={takeSelfie} className="bg-gradient-gold text-primary-foreground">
-                  <Camera className="mr-2 h-4 w-4" />Take Selfie
-                </Button>
-              )}
-              <Button variant="outline" onClick={close}>Skip</Button>
-            </div>
+            {/* Live camera overlay */}
+            {cameraOpen ? (
+              <div className="space-y-3">
+                <div className="relative rounded-lg overflow-hidden bg-black aspect-video">
+                  {cameraError ? (
+                    <div className="flex h-full items-center justify-center text-center p-4">
+                      <p className="text-sm text-destructive">{cameraError}</p>
+                    </div>
+                  ) : (
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full h-full object-cover"
+                      style={{ transform: "scaleX(-1)" }}
+                    />
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={captureSnapshot}
+                    disabled={!!cameraError}
+                    className="flex-1 bg-gradient-gold text-primary-foreground"
+                  >
+                    <Camera className="mr-2 h-4 w-4" /> Capture
+                  </Button>
+                  <Button variant="outline" onClick={() => setCameraOpen(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Preview box */}
+                <div className="aspect-video rounded-md overflow-hidden bg-secondary border border-border">
+                  {selfie ? (
+                    <img src={selfie} alt="Captured selfie" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="h-full flex flex-col items-center justify-center gap-2 text-muted-foreground text-sm">
+                      <Camera className="h-8 w-8" />
+                      No photo yet
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {selfie ? (
+                    <>
+                      <Button onClick={() => setStep("id")} className="bg-gradient-gold text-primary-foreground">Use this photo</Button>
+                      <Button variant="outline" onClick={() => { setSelfie(null); takeSelfie(); }}><Camera className="mr-2 h-4 w-4" />Retake</Button>
+                    </>
+                  ) : (
+                    <Button onClick={takeSelfie} className="bg-gradient-gold text-primary-foreground">
+                      <Camera className="mr-2 h-4 w-4" />Take Selfie
+                    </Button>
+                  )}
+                  <Button variant="outline" onClick={close}>Skip</Button>
+                </div>
+              </>
+            )}
           </div>
         )}
 

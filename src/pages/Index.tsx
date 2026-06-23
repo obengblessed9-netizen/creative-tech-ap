@@ -11,6 +11,9 @@ import heroPoster from "@/assets/hero-poster.jpg";
 import ArtworkCard from "@/components/ArtworkCard";
 import { type ArtworkCardData } from "@/components/ArtworkCard";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
+import EditArtworkDialog from "@/components/EditArtworkDialog";
 
 
 const categoryGroups = [
@@ -35,38 +38,43 @@ const Index = () => {
     return !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   });
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
+  const [editingArtworkId, setEditingArtworkId] = useState<string | null>(null);
 
   useEffect(() => {
     localStorage.setItem("heroVideoEnabled", String(videoEnabled));
   }, [videoEnabled]);
 
+  const fetchTrendingArtworks = async () => {
+    const { data } = await supabase
+      .from("artworks")
+      .select("id, title, price, medium, category, image_url, available, artist_id, artists(name)")
+      .order("created_at", { ascending: false })
+      .limit(6);
+
+    if (data) {
+      setTrendingArtworks(
+        data.map((a: any) => ({
+          id: a.id,
+          title: a.title,
+          artist: a.artists?.name ?? "Unknown",
+          artistId: a.artist_id ?? "",
+          price: Number(a.price),
+          medium: a.medium ?? "",
+          dimensions: "",
+          year: 0,
+          category: a.category ?? "Other",
+          image: a.image_url ?? "",
+          description: "",
+          available: a.available,
+        }))
+      );
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
-      const { data } = await supabase
-        .from("artworks")
-        .select("id, title, price, medium, category, image_url, available, artist_id, artists(name)")
-        .order("created_at", { ascending: false })
-        .limit(6);
-
-      if (data) {
-        setTrendingArtworks(
-          data.map((a: any) => ({
-            id: a.id,
-            title: a.title,
-            artist: a.artists?.name ?? "Unknown",
-            artistId: a.artist_id ?? "",
-            price: Number(a.price),
-            medium: a.medium ?? "",
-            dimensions: "",
-            year: 0,
-            category: a.category ?? "Other",
-            image: a.image_url ?? "",
-            description: "",
-            available: a.available,
-          }))
-        );
-      }
+      await fetchTrendingArtworks();
 
       const { data: allArtworks } = await supabase.from("artworks").select("category");
       const counts: Record<string, number> = {};
@@ -84,6 +92,16 @@ const Index = () => {
       navigate(`/gallery?search=${encodeURIComponent(searchQuery.trim())}`);
     } else {
       navigate("/gallery");
+    }
+  };
+
+  const handleDeleteArtwork = async (id: string) => {
+    if (!confirm("Delete this artwork?")) return;
+    const { error } = await supabase.from("artworks").delete().eq("id", id);
+    if (error) toast.error("Delete failed");
+    else {
+      toast.success("Artwork deleted");
+      setTrendingArtworks(prev => prev.filter(a => a.id !== id));
     }
   };
 
@@ -219,7 +237,13 @@ const Index = () => {
                 {trendingArtworks.length > 0 ? (
                   <div className="mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
                     {trendingArtworks.map((artwork, i) => (
-                      <ArtworkCard key={artwork.id} artwork={artwork} index={i} />
+                      <ArtworkCard 
+                        key={artwork.id} 
+                        artwork={artwork} 
+                        index={i}
+                        onEdit={isAdmin ? () => setEditingArtworkId(artwork.id) : undefined}
+                        onDelete={isAdmin ? () => handleDeleteArtwork(artwork.id) : undefined}
+                      />
                     ))}
                   </div>
                 ) : (
@@ -254,6 +278,17 @@ const Index = () => {
 
       <Footer />
       <HomeSettings />
+
+      {editingArtworkId && (
+        <EditArtworkDialog
+          open={!!editingArtworkId}
+          onClose={() => setEditingArtworkId(null)}
+          artworkId={editingArtworkId}
+          onSaved={() => {
+            fetchTrendingArtworks();
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -193,3 +193,58 @@ body {
   outline-offset: 2px !important;
   border-radius: 4px;
 }
+
+/* Print Mode and Order Form Styles */
+@media print {
+  .print-hidden {
+    display: none !important;
+  }
+  .printable-area {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+  .print-shadow-none {
+    box-shadow: none !important;
+    border: none !important;
+  }
+  .print-rounded-none {
+    border-radius: 0 !important;
+  }
+  body {
+    background-color: white !important;
+    color: black !important;
+  }
+}
+
+.form-input-line {
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid #c9c2b4;
+  outline: none;
+  background: transparent;
+  font-size: 12px;
+  font-style: italic;
+  color: #3a3fa0;
+  padding: 3px 0;
+  font-family: inherit;
+}
+
+.form-input-line:focus {
+  border-bottom: 1px solid #3a3fa0;
+}
+
+.form-val-text {
+  font-size: 12px;
+  font-style: italic;
+  color: #3a3fa0;
+  border-bottom: 1px solid #ccc;
+  padding-bottom: 2px;
+}
+
+.form-label-text {
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 2px;
+}
+
