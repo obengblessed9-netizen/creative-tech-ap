@@ -104,9 +104,9 @@ const artistSteps: ArtistStep[] = [
     title: "Build a Portfolio",
     desc: "Many artists document and share their work on platforms such as Instagram and YouTube to create a portfolio and attract audiences. Curate your best pieces and present them professionally.",
     topics: ["portfolio"],
+    videoId: "Jl-gcqSzyWA",
     videoTitle: "How To Build An Art Portfolio",
     source: "YouTube",
-    watchUrl: "https://www.youtube.com/results?search_query=how+to+build+an+art+portfolio",
   },
   {
     number: 5,
