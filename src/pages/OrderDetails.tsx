@@ -8,14 +8,36 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
-const today = new Date().toLocaleDateString("en-GB", {
-  day: "2-digit",
-  month: "long",
-  year: "numeric",
-});
+const today = new Date().toISOString().split("T")[0]; // yyyy-mm-dd for date input
 
 const ARTWORK_TYPES = ["Digital Illustration", "Painting (Traditional)", "Drawing / Sketch", "Other"];
 const ORIENTATIONS = ["Portrait", "Landscape", "Square"];
+
+const COUNTRIES = [
+  "Afghanistan","Albania","Algeria","Andorra","Angola","Argentina","Armenia","Australia",
+  "Austria","Azerbaijan","Bahamas","Bahrain","Bangladesh","Barbados","Belarus","Belgium",
+  "Belize","Benin","Bhutan","Bolivia","Bosnia and Herzegovina","Botswana","Brazil","Brunei",
+  "Bulgaria","Burkina Faso","Burundi","Cambodia","Cameroon","Canada","Cape Verde",
+  "Central African Republic","Chad","Chile","China","Colombia","Comoros","Congo",
+  "Costa Rica","Croatia","Cuba","Cyprus","Czech Republic","Denmark","Djibouti",
+  "Dominican Republic","Ecuador","Egypt","El Salvador","Eritrea","Estonia","Eswatini",
+  "Ethiopia","Fiji","Finland","France","Gabon","Gambia","Georgia","Germany","Ghana",
+  "Greece","Guatemala","Guinea","Guinea-Bissau","Guyana","Haiti","Honduras","Hungary",
+  "Iceland","India","Indonesia","Iran","Iraq","Ireland","Israel","Italy","Jamaica",
+  "Japan","Jordan","Kazakhstan","Kenya","Kuwait","Kyrgyzstan","Laos","Latvia","Lebanon",
+  "Lesotho","Liberia","Libya","Liechtenstein","Lithuania","Luxembourg","Madagascar",
+  "Malawi","Malaysia","Maldives","Mali","Malta","Mauritania","Mauritius","Mexico",
+  "Moldova","Monaco","Mongolia","Montenegro","Morocco","Mozambique","Myanmar","Namibia",
+  "Nepal","Netherlands","New Zealand","Nicaragua","Niger","Nigeria","North Korea",
+  "North Macedonia","Norway","Oman","Pakistan","Panama","Papua New Guinea","Paraguay",
+  "Peru","Philippines","Poland","Portugal","Qatar","Romania","Russia","Rwanda",
+  "Saudi Arabia","Senegal","Serbia","Sierra Leone","Singapore","Slovakia","Slovenia",
+  "Somalia","South Africa","South Korea","South Sudan","Spain","Sri Lanka","Sudan",
+  "Sweden","Switzerland","Syria","Taiwan","Tajikistan","Tanzania","Thailand","Togo",
+  "Trinidad and Tobago","Tunisia","Turkey","Turkmenistan","Uganda","Ukraine",
+  "United Arab Emirates","United Kingdom","United States","Uruguay","Uzbekistan",
+  "Venezuela","Vietnam","Yemen","Zambia","Zimbabwe",
+];
 
 const OrderDetails = () => {
   const { id } = useParams();
@@ -49,11 +71,19 @@ const OrderDetails = () => {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [orderDate] = useState(today);
+  const [orderDate, setOrderDate] = useState(today);
   const [contactEmail, setContactEmail] = useState(false);
   const [contactWhatsApp, setContactWhatsApp] = useState(false);
   const [contactPhone, setContactPhone] = useState(false);
-  const [shippingAddress, setShippingAddress] = useState("");
+  const [country, setCountry] = useState("");
+  const [town, setTown] = useState("");
+  const [street, setStreet] = useState("");
+  const [countrySearch, setCountrySearch] = useState("");
+  const [countryOpen, setCountryOpen] = useState(false);
+
+  const filteredCountries = COUNTRIES.filter((c) =>
+    c.toLowerCase().includes(countrySearch.toLowerCase())
+  );
 
   const [artworkType, setArtworkType] = useState("Digital Illustration");
   const [artworkTypeOther, setArtworkTypeOther] = useState("");
@@ -88,8 +118,8 @@ const OrderDetails = () => {
       toast.error("Please enter your full name");
       return;
     }
-    if (!shippingAddress.trim()) {
-      toast.error("Please enter your shipping address");
+    if (!country.trim()) {
+      toast.error("Please select your country");
       return;
     }
     setOrdering(true);
@@ -200,7 +230,12 @@ const OrderDetails = () => {
                 </div>
                 <div>
                   <FormField label="Order Date">
-                    <p className="form-val-text mt-1">{orderDate}</p>
+                    <input
+                      type="date"
+                      className="form-input-line"
+                      value={orderDate}
+                      onChange={(e) => setOrderDate(e.target.value)}
+                    />
                   </FormField>
                   <div className="mt-3">
                     <p className="form-label-text">Preferred Contact Method:</p>
@@ -217,8 +252,66 @@ const OrderDetails = () => {
                       ))}
                     </div>
                   </div>
-                  <FormField label="Shipping Address (if applicable)" className="mt-3">
-                    <textarea value={shippingAddress} onChange={(e) => setShippingAddress(e.target.value)} placeholder="Street, City, Country" rows={2} className="form-input-line resize-y" />
+                  {/* Country selector */}
+                  <FormField label="Country" className="mt-3">
+                    <div className="relative">
+                      <div
+                        className="form-input-line flex items-center justify-between cursor-pointer select-none"
+                        onClick={() => setCountryOpen((o) => !o)}
+                      >
+                        <span className={country ? "text-[#1a1a1a]" : "text-gray-400"}>
+                          {country || "Select your country"}
+                        </span>
+                        <span className="text-gray-400 text-xs">▾</span>
+                      </div>
+                      {countryOpen && (
+                        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-[#c9a884] rounded-lg shadow-lg max-h-52 overflow-hidden flex flex-col">
+                          <div className="p-2 border-b border-[#e8d5b7]">
+                            <input
+                              autoFocus
+                              className="w-full text-xs outline-none border border-[#c9a884] rounded px-2 py-1"
+                              placeholder="Search country..."
+                              value={countrySearch}
+                              onChange={(e) => setCountrySearch(e.target.value)}
+                            />
+                          </div>
+                          <div className="overflow-y-auto">
+                            {filteredCountries.map((c) => (
+                              <div
+                                key={c}
+                                onClick={() => { setCountry(c); setCountryOpen(false); setCountrySearch(""); }}
+                                className={`px-3 py-1.5 text-xs cursor-pointer hover:bg-[#fdf8f0] ${
+                                  country === c ? "bg-[#f5ede0] font-semibold text-[#6b4c2a]" : "text-[#1a1a1a]"
+                                }`}
+                              >
+                                {c}
+                              </div>
+                            ))}
+                            {filteredCountries.length === 0 && (
+                              <p className="text-xs text-gray-400 px-3 py-2">No country found</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </FormField>
+                  {/* Town / City */}
+                  <FormField label="Town / City" className="mt-3">
+                    <input
+                      className="form-input-line"
+                      value={town}
+                      onChange={(e) => setTown(e.target.value)}
+                      placeholder="e.g. Accra, London, New York"
+                    />
+                  </FormField>
+                  {/* Street */}
+                  <FormField label="Street / Area (if applicable)" className="mt-3">
+                    <input
+                      className="form-input-line"
+                      value={street}
+                      onChange={(e) => setStreet(e.target.value)}
+                      placeholder="e.g. 12 Main Street"
+                    />
                   </FormField>
                 </div>
               </div>
