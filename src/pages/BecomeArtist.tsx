@@ -94,9 +94,9 @@ const artistSteps: ArtistStep[] = [
     title: "Practice Consistently",
     desc: "Drawing experts recommend regular practice with shapes, perspective, and shading to build skill over time. Set aside time daily to draw, even if it's just for 15 minutes. Consistency beats intensity.",
     topics: ["practice"],
+    videoId: "nGgPwChc9Lo",
     videoTitle: "How To Practice Drawing Effectively",
     source: "YouTube",
-    watchUrl: "https://www.youtube.com/results?search_query=how+to+practice+drawing+effectively",
   },
   {
     number: 4,
