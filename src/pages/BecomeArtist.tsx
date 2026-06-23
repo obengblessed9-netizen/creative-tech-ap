@@ -144,9 +144,9 @@ const artistSteps: ArtistStep[] = [
     title: "Network with Other Artists",
     desc: "Participate in online art communities, exhibitions, and artist groups. Collaboration with other creators helps you improve and gain visibility. Surround yourself with people who inspire you.",
     topics: ["business"],
+    videoId: "A2xVIR3uvZY",
     videoTitle: "How Artists Network & Build Community",
     source: "YouTube",
-    watchUrl: "https://www.youtube.com/results?search_query=how+artists+network+and+build+community",
   },
   {
     number: 9,
