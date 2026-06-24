@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
-type PaymentMethod = "mobile_money" | "card" | "bank_transfer" | "pay_on_delivery";
+type PaymentMethod = "mobile_money" | "card" | "bank_transfer" | "pay_on_delivery" | "paystack" | "payswitch";
 type MobileProvider = "mtn" | "vodafone" | "airteltigo";
 type CardType = "visa" | "mastercard" | "verve";
 
@@ -36,9 +36,111 @@ const Payment = () => {
   const { user } = useAuth();
   const [method, setMethod] = useState<PaymentMethod>("mobile_money");
   const [processing, setProcessing] = useState(false);
+  const [paystackLoading, setPaystackLoading] = useState(false);
+  const [payswitchLoading, setPayswitchLoading] = useState(false);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
   const [activeTab, setActiveTab] = useState<"receipt" | "email">("receipt");
   const receiptRef = useRef<HTMLDivElement>(null);
+
+  // Verify Paystack/PaySwitch callback on return
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const provider = url.searchParams.get("provider");
+    const reference = url.searchParams.get("reference") || url.searchParams.get("trxref") || url.searchParams.get("transaction_id");
+    
+    if (!reference) return;
+
+    (async () => {
+      if (provider === "payswitch" || url.searchParams.has("transaction_id")) {
+        const { data, error } = await supabase.functions.invoke("payswitch-verify", { body: { reference } });
+        if (error || !data?.success) {
+          toast.error("PaySwitch payment verification failed.");
+        } else {
+          toast.success(`PaySwitch payment confirmed (${data.reference})`);
+          setReceipt({
+            code: `AGMS-${data.reference.slice(-8).toUpperCase()}`,
+            method: "PaySwitch",
+            details: { Reference: data.reference, Currency: data.currency || "GHS" },
+            items: items.map((i) => ({ title: i.artwork?.title ?? "Artwork", price: i.artwork?.price ?? 0 })),
+            total: data.amount ?? totalPrice,
+            date: new Date().toLocaleString(),
+          });
+          clearCart();
+        }
+      } else {
+        const { data, error } = await supabase.functions.invoke("paystack-verify", { body: { reference } });
+        if (error || !data?.success) {
+          toast.error("Payment verification failed.");
+        } else {
+          toast.success(`Paystack payment confirmed (${data.reference})`);
+          setReceipt({
+            code: `AGMS-${data.reference.slice(-8).toUpperCase()}`,
+            method: "Paystack",
+            details: { Reference: data.reference, Currency: data.currency || "GHS" },
+            items: items.map((i) => ({ title: i.artwork?.title ?? "Artwork", price: i.artwork?.price ?? 0 })),
+            total: data.amount ?? totalPrice,
+            date: new Date().toLocaleString(),
+          });
+          clearCart();
+        }
+      }
+
+      url.searchParams.delete("reference");
+      url.searchParams.delete("trxref");
+      url.searchParams.delete("transaction_id");
+      url.searchParams.delete("provider");
+      window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""));
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handlePaystack = async () => {
+    if (totalPrice <= 0) { toast.error("Your cart is empty."); return; }
+    setPaystackLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("paystack-init", {
+        body: {
+          amount: totalPrice,
+          currency: "GHS",
+          callback_url: `${window.location.origin}/payment`,
+          metadata: { items: items.map((i) => ({ id: i.artwork?.id, title: i.artwork?.title })), mobile_number: "0551234567" },
+        },
+      });
+      if (error || !data?.authorization_url) {
+        toast.error(error?.message || "Could not start Paystack checkout.");
+        setPaystackLoading(false);
+        return;
+      }
+      window.location.href = data.authorization_url;
+    } catch (e) {
+      toast.error((e as Error).message);
+      setPaystackLoading(false);
+    }
+  };
+
+  const handlePaySwitch = async () => {
+    if (totalPrice <= 0) { toast.error("Your cart is empty."); return; }
+    setPayswitchLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("payswitch-init", {
+        body: {
+          amount: totalPrice,
+          currency: "GHS",
+          callback_url: `${window.location.origin}/payment?provider=payswitch`,
+          metadata: { items: items.map((i) => ({ id: i.artwork?.id, title: i.artwork?.title })) },
+        },
+      });
+      if (error || !data?.authorization_url) {
+        toast.error(error?.message || "Could not start PaySwitch checkout.");
+        setPayswitchLoading(false);
+        return;
+      }
+      window.location.href = data.authorization_url;
+    } catch (e) {
+      toast.error((e as Error).message);
+      setPayswitchLoading(false);
+    }
+  };
 
   // Form fields
   const [address, setAddress] = useState("");
@@ -49,6 +151,8 @@ const Payment = () => {
       card: "Debit / Credit Card",
       bank_transfer: "Bank Transfer",
       pay_on_delivery: "Pay on Delivery",
+      paystack: "Paystack",
+      payswitch: "PaySwitch",
     };
     return map[m];
   };
@@ -57,18 +161,20 @@ const Payment = () => {
     switch (method) {
       case "pay_on_delivery":
         return { "Delivery Address": address };
-      case "mobile_money":
-        return { Provider: "Mobile Money", Status: "Payment Sent", Delivery: "In Progress" };
-      case "card":
-        return { Provider: "Card Payment", Status: "Payment Sent", Delivery: "In Progress" };
-      case "bank_transfer":
-        return { Provider: "Bank Transfer", Status: "Payment Sent", Delivery: "In Progress" };
       default:
-        return { Status: "Payment Sent", Delivery: "In Progress" };
+        return { Provider: getMethodLabel(method), Channels: "Card, MoMo, Bank" };
     }
   };
 
   const handleSubmit = async () => {
+    if (method === "payswitch") {
+      await handlePaySwitch();
+      return;
+    }
+    if (method !== "pay_on_delivery") {
+      await handlePaystack();
+      return;
+    }
     if (method === "pay_on_delivery" && !address) {
       toast.error("Please enter your delivery address.");
       return;
@@ -92,30 +198,32 @@ const Payment = () => {
     if (user) {
       const messageContent = `Hello! 
 
-Your payment for order reference "${receiptData.code}" has been confirmed. 
+Your order reference "${receiptData.code}" for local delivery (Pay on Delivery) has been placed successfully. 
 
 Order Details:
 - Reference: ${receiptData.code}
-- Total Paid: $${receiptData.total.toLocaleString()}
+- Total to Pay: $${receiptData.total.toLocaleString()}
 - Method: ${receiptData.method}
 - Date: ${receiptData.date}
 
 Items Ordered:
 ${receiptData.items.map(item => `- ${item.title} ($${item.price.toLocaleString()})`).join("\n")}
 
-Delivery status is currently "In Progress". Our delivery team will process your shipment and contact you shortly with further updates.
+Delivery Address: ${address}
+
+Payment will be collected in cash upon delivery. Our delivery team will process your shipment and contact you shortly with further updates.
 
 Thank you for choosing Creative Tech Gallery!`;
 
       await supabase.from("messages").insert({
         sender_id: user.id,
         recipient_id: user.id,
-        subject: `Payment Confirmed - Order ${receiptData.code}`,
+        subject: `Order Placed - Pay on Delivery ${receiptData.code}`,
         content: messageContent,
       });
     }
 
-    toast.success("Payment sent! A confirmation email and inbox message have been sent.");
+    toast.success("Order placed successfully! Cash on delivery details generated.");
     clearCart();
     setProcessing(false);
   };
@@ -132,6 +240,8 @@ Thank you for choosing Creative Tech Gallery!`;
   };
 
   const methods: { id: PaymentMethod; label: string; icon: React.ReactNode; desc: string }[] = [
+    { id: "payswitch", label: "PaySwitch (TheTeller)", icon: <Zap className="h-5 w-5 text-blue-500" />, desc: "Secure payments via PaySwitch/TheTeller in Ghana." },
+    { id: "paystack", label: "Paystack", icon: <Zap className="h-5 w-5 text-primary" />, desc: "Pay securely with card, MoMo, or bank via Paystack." },
     { id: "mobile_money", label: "Mobile Money", icon: <Smartphone className="h-5 w-5" />, desc: "Fast and secure payments directly from your mobile wallet." },
     { id: "card", label: "Debit / Credit Card", icon: <CreditCard className="h-5 w-5" />, desc: "Safe online card payments with encrypted protection." },
     { id: "bank_transfer", label: "Bank Transfer", icon: <Building2 className="h-5 w-5" />, desc: "Direct transfer to our official business account." },
@@ -316,14 +426,30 @@ Thank you for choosing Creative Tech Gallery!`;
                 <p className="font-display text-2xl font-bold text-gradient-gold">${totalPrice.toLocaleString()}</p>
                 <Button
                   onClick={handleSubmit}
-                  disabled={processing}
+                  disabled={processing || paystackLoading || payswitchLoading}
                   size="lg"
-                  className="mt-4 w-full gap-2 bg-gradient-gold text-primary-foreground hover:opacity-90 shadow-gold"
+                  className={`mt-4 w-full gap-2 text-white hover:opacity-90 ${
+                    method === "payswitch" 
+                      ? "bg-blue-600 hover:bg-blue-700" 
+                      : method === "pay_on_delivery" 
+                      ? "bg-gradient-gold text-primary-foreground" 
+                      : "bg-[#00C3F7] hover:bg-[#00A8D6]"
+                  }`}
                 >
-                  <Check className="h-4 w-4" />
-                  {processing ? "Processing Payment..." : "Confirm & Pay"}
+                  <Zap className="h-4 w-4" />
+                  {method === "payswitch"
+                    ? payswitchLoading ? "Redirecting to PaySwitch..." : "Pay with PaySwitch"
+                    : method === "pay_on_delivery"
+                    ? processing ? "Placing Order..." : "Place Order (Pay on Delivery)"
+                    : paystackLoading ? "Redirecting to Paystack..." : "Pay with Paystack"}
                 </Button>
-                <p className="mt-2 text-xs text-muted-foreground text-center">Testing Mode: Mock payment processed instantly.</p>
+                <p className="mt-2 text-xs text-muted-foreground text-center">
+                  {method === "payswitch" 
+                    ? "Secure checkout powered by PaySwitch (cards, MoMo)."
+                    : method === "pay_on_delivery"
+                    ? "Confirm your order for cash on delivery."
+                    : "Secure checkout powered by Paystack (cards, MoMo, bank)."}
+                </p>
               </div>
             )}
 
@@ -358,7 +484,7 @@ Thank you for choosing Creative Tech Gallery!`;
               {method === m.id && m.id === "mobile_money" && (
                 <div className="mt-4 ml-13 space-y-2" onClick={(e) => e.stopPropagation()}>
                   <p className="text-sm text-muted-foreground italic">
-                    Testing Mode: Tap "Confirm Payment" to complete the mock Mobile Money transaction.
+                    You'll be redirected to Paystack's secure checkout for Mobile Money payment. Tap "Confirm Payment" to continue.
                   </p>
                 </div>
               )}
@@ -366,7 +492,7 @@ Thank you for choosing Creative Tech Gallery!`;
               {method === m.id && m.id === "card" && (
                 <div className="mt-4 ml-13 space-y-2" onClick={(e) => e.stopPropagation()}>
                   <p className="text-sm text-muted-foreground italic">
-                    Testing Mode: Tap "Confirm Payment" to complete the mock Card transaction.
+                    You'll be redirected to Paystack's secure checkout. Your card details are safely encrypted. Tap "Confirm Payment" to continue.
                   </p>
                 </div>
               )}
@@ -374,7 +500,7 @@ Thank you for choosing Creative Tech Gallery!`;
               {method === m.id && m.id === "bank_transfer" && (
                 <div className="mt-4 ml-13 space-y-2" onClick={(e) => e.stopPropagation()}>
                   <p className="text-sm text-muted-foreground italic">
-                    Testing Mode: Tap "Confirm Payment" to complete the mock Bank Transfer transaction.
+                    You'll be redirected to Paystack to complete your secure bank transfer. Tap "Confirm Payment" to continue.
                   </p>
                 </div>
               )}
@@ -386,6 +512,27 @@ Thank you for choosing Creative Tech Gallery!`;
                     <Input id="address" placeholder="Enter your delivery address" value={address} onChange={(e) => setAddress(e.target.value)} />
                   </div>
                   <p className="text-xs text-muted-foreground italic">Cash payment will be collected upon delivery. Please have the exact amount ready.</p>
+                </div>
+              )}
+
+              {method === m.id && m.id === "paystack" && (
+                <div className="mt-4 ml-13 space-y-2" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex flex-wrap gap-2">
+                    {["Visa", "Mastercard", "Verve", "MTN MoMo", "Vodafone", "AirtelTigo", "Bank"].map((c) => (
+                      <span key={c} className="rounded-full border border-border bg-muted/50 px-3 py-1 text-xs text-foreground">{c}</span>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground italic">
+                    You'll be redirected to Paystack's secure checkout. Tap "Confirm Payment" to continue.
+                  </p>
+                </div>
+              )}
+
+              {method === m.id && m.id === "payswitch" && (
+                <div className="mt-4 ml-13 space-y-2" onClick={(e) => e.stopPropagation()}>
+                  <p className="text-sm text-muted-foreground italic">
+                    You'll be redirected to PaySwitch (TheTeller) secure checkout. Tap "Confirm Payment" to continue.
+                  </p>
                 </div>
               )}
 
