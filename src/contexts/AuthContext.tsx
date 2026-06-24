@@ -12,6 +12,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   setMockSession: (session: Session | null) => void;
+  signInWithOtp: (email: string) => Promise<{ error: Error | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -127,8 +128,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     await supabase.auth.signOut();
   };
 
+  const signInWithOtp = async (email: string) => {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: window.location.origin,
+      },
+    });
+    return { error: error as Error | null };
+  };
+
   return (
-    <AuthContext.Provider value={{ user, session, loading, isAdmin, isStaff, signUp, signIn, signOut, setMockSession }}>
+    <AuthContext.Provider value={{ user, session, loading, isAdmin, isStaff, signUp, signIn, signOut, setMockSession, signInWithOtp }}>
       {children}
     </AuthContext.Provider>
   );

@@ -14,7 +14,7 @@ const RESET_COOLDOWN = 60;
 const RESEND_COOLDOWN = 60;
 
 const Auth = () => {
-  const [view, setView] = useState<"login" | "signup" | "forgot">("login");
+  const [view, setView] = useState<"login" | "signup" | "forgot" | "magic_link">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -51,7 +51,7 @@ const Auth = () => {
     return () => clearInterval(resendCooldownRef.current);
   }, [resendCooldown > 0]);
 
-  const { signIn, signUp, setMockSession } = useAuth();
+  const { signIn, signUp, setMockSession, signInWithOtp } = useAuth();
   const navigate = useNavigate();
 
   const friendlyAuthError = (msg: string): { error: string; unverified?: boolean } => {
@@ -93,6 +93,26 @@ const Auth = () => {
     setError("");
     setSuccess("");
     setUnverifiedEmail(null);
+
+    if (view === "magic_link") {
+      if (!email) {
+        setError("Please enter your email address.");
+        toast.error("Please enter your email address.");
+        return;
+      }
+      setLoading(true);
+      const { error } = await signInWithOtp(email);
+      if (error) {
+        const f = friendlyAuthError(error.message);
+        setError(f.error); toast.error(f.error);
+      } else {
+        const msg = `We sent a login verification link to ${email}. Check your inbox!`;
+        setSuccess(msg);
+        toast.success(msg);
+      }
+      setLoading(false);
+      return;
+    }
 
     if (view === "forgot") {
       if (cooldown > 0) {
@@ -265,7 +285,7 @@ const Auth = () => {
 
 
 
-  const switchView = (v: "login" | "signup" | "forgot") => {
+  const switchView = (v: "login" | "signup" | "forgot" | "magic_link") => {
     setView(v);
     setError("");
     setSuccess("");
@@ -278,13 +298,13 @@ const Auth = () => {
       <main className="container flex items-center justify-center pt-28 pb-20">
         <div className="w-full max-w-md rounded-lg border border-border bg-card p-8" role="region" aria-labelledby="auth-heading">
           <h1 id="auth-heading" className="font-display text-2xl font-bold text-foreground">
-            {view === "login" ? "Welcome Back" : view === "signup" ? "Create Account" : "Reset Password"}
+            {view === "login" ? "Welcome Back" : view === "signup" ? "Create Account" : view === "magic_link" ? "Verify Your Email" : "Reset Password"}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {view === "login" ? "Sign in to your account" : view === "signup" ? "Join our gallery community" : "Enter your email to receive a reset link"}
+            {view === "login" ? "Sign in to your account" : view === "signup" ? "Join our gallery community" : view === "magic_link" ? "Enter your email to receive a secure login link" : "Enter your email to receive a reset link"}
           </p>
 
-          {view !== "forgot" && (
+          {view !== "forgot" && view !== "magic_link" && (
             <div className="mt-6 space-y-3">
               <Button
                 type="button"
@@ -344,7 +364,7 @@ const Auth = () => {
                 aria-invalid={!!error}
               />
             </div>
-            {view !== "forgot" && (
+            {view !== "forgot" && view !== "magic_link" && (
               <div>
                 <Label htmlFor="password" className="text-foreground">Password</Label>
                 <Input
@@ -369,39 +389,49 @@ const Auth = () => {
             )}
 
             {view === "login" && (
-              <button
-                type="button"
-                disabled={resetLoading || cooldown > 0}
-                aria-label={cooldown > 0 ? `Resend reset link in ${cooldown} seconds` : "Send password reset link"}
-                onClick={async () => {
-                  if (!email) {
-                    const m = "Please enter your email first.";
-                    setError(m); toast.error(m);
-                    return;
-                  }
-                  setError("");
-                  setResetLoading(true);
-                  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                    redirectTo: `${window.location.origin}/reset-password`,
-                  });
-                  if (error) {
-                    const f = friendlyAuthError(error.message);
-                    setError(f.error); toast.error(f.error);
-                  } else {
-                    toast.success("Check your email for a password reset link.");
-                    setCooldown(RESET_COOLDOWN);
-                  }
-                  setResetLoading(false);
-                }}
-                className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline disabled:opacity-50 disabled:no-underline"
-              >
-                {resetLoading && <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />}
-                {resetLoading
-                  ? "Sending reset link..."
-                  : cooldown > 0
-                  ? `Resend in ${cooldown}s`
-                  : "Forgot your password?"}
-              </button>
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  disabled={resetLoading || cooldown > 0}
+                  aria-label={cooldown > 0 ? `Resend reset link in ${cooldown} seconds` : "Send password reset link"}
+                  onClick={async () => {
+                    if (!email) {
+                      const m = "Please enter your email first.";
+                      setError(m); toast.error(m);
+                      return;
+                    }
+                    setError("");
+                    setResetLoading(true);
+                    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                      redirectTo: `${window.location.origin}/reset-password`,
+                    });
+                    if (error) {
+                      const f = friendlyAuthError(error.message);
+                      setError(f.error); toast.error(f.error);
+                    } else {
+                      toast.success("Check your email for a password reset link.");
+                      setCooldown(RESET_COOLDOWN);
+                    }
+                    setResetLoading(false);
+                  }}
+                  className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline disabled:opacity-50 disabled:no-underline"
+                >
+                  {resetLoading && <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />}
+                  {resetLoading
+                    ? "Sending reset link..."
+                    : cooldown > 0
+                    ? `Resend in ${cooldown}s`
+                    : "Forgot your password?"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => switchView("magic_link")}
+                  className="text-xs text-primary hover:underline font-medium"
+                >
+                  Sign in with Magic Link
+                </button>
+              </div>
             )}
 
             {/* Live regions for assistive tech */}
@@ -489,6 +519,8 @@ const Auth = () => {
                   ? "Signing in..."
                   : view === "signup"
                   ? "Creating account..."
+                  : view === "magic_link"
+                  ? "Sending magic link..."
                   : "Sending reset link..."
                 : view === "signup" && signupCooldown > 0
                 ? `Try again in ${signupCooldown}s`
@@ -498,6 +530,8 @@ const Auth = () => {
                 ? "Sign In"
                 : view === "signup"
                 ? "Sign Up"
+                : view === "magic_link"
+                ? "Send Magic Link"
                 : "Send Reset Link"}
             </Button>
           </form>

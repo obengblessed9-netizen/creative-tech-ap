@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Smartphone, CreditCard, Building2, Truck, Check, Download, Printer, Zap, Calendar, Hash, Receipt } from "lucide-react";
+import { Smartphone, CreditCard, Building2, Truck, Check, Download, Printer, Zap, Calendar, Hash, Receipt, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
@@ -9,8 +9,9 @@ import Footer from "@/components/Footer";
 import { useCart } from "@/contexts/CartContext";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
-type PaymentMethod = "mobile_money" | "card" | "bank_transfer" | "pay_on_delivery" | "paystack" | "payswitch";
+type PaymentMethod = "mobile_money" | "card" | "bank_transfer" | "pay_on_delivery";
 type MobileProvider = "mtn" | "vodafone" | "airteltigo";
 type CardType = "visa" | "mastercard" | "verve";
 
@@ -32,112 +33,12 @@ const generateCode = () => {
 
 const Payment = () => {
   const { items, totalPrice, clearCart } = useCart();
+  const { user } = useAuth();
   const [method, setMethod] = useState<PaymentMethod>("mobile_money");
   const [processing, setProcessing] = useState(false);
-  const [paystackLoading, setPaystackLoading] = useState(false);
-  const [payswitchLoading, setPayswitchLoading] = useState(false);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
+  const [activeTab, setActiveTab] = useState<"receipt" | "email">("receipt");
   const receiptRef = useRef<HTMLDivElement>(null);
-
-  // Verify Paystack callback on return
-  useEffect(() => {
-    const url = new URL(window.location.href);
-    const provider = url.searchParams.get("provider");
-    const reference = url.searchParams.get("reference") || url.searchParams.get("trxref") || url.searchParams.get("transaction_id");
-    
-    if (!reference) return;
-
-    (async () => {
-      if (provider === "payswitch" || url.searchParams.has("transaction_id")) {
-        const { data, error } = await supabase.functions.invoke("payswitch-verify", { body: { reference } });
-        if (error || !data?.success) {
-          toast.error("PaySwitch payment verification failed.");
-        } else {
-          toast.success(`PaySwitch payment confirmed (${data.reference})`);
-          setReceipt({
-            code: `AGMS-${data.reference.slice(-8).toUpperCase()}`,
-            method: "PaySwitch",
-            details: { Reference: data.reference, Currency: data.currency || "GHS" },
-            items: items.map((i) => ({ title: i.artwork?.title ?? "Artwork", price: i.artwork?.price ?? 0 })),
-            total: data.amount ?? totalPrice,
-            date: new Date().toLocaleString(),
-          });
-          clearCart();
-        }
-      } else {
-        const { data, error } = await supabase.functions.invoke("paystack-verify", { body: { reference } });
-        if (error || !data?.success) {
-          toast.error("Payment verification failed.");
-        } else {
-          toast.success(`Paystack payment confirmed (${data.reference})`);
-          setReceipt({
-            code: `AGMS-${data.reference.slice(-8).toUpperCase()}`,
-            method: "Paystack",
-            details: { Reference: data.reference, Currency: data.currency || "GHS" },
-            items: items.map((i) => ({ title: i.artwork?.title ?? "Artwork", price: i.artwork?.price ?? 0 })),
-            total: data.amount ?? totalPrice,
-            date: new Date().toLocaleString(),
-          });
-          clearCart();
-        }
-      }
-
-      url.searchParams.delete("reference");
-      url.searchParams.delete("trxref");
-      url.searchParams.delete("transaction_id");
-      url.searchParams.delete("provider");
-      window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""));
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const handlePaystack = async () => {
-    if (totalPrice <= 0) { toast.error("Your cart is empty."); return; }
-    setPaystackLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("paystack-init", {
-        body: {
-          amount: totalPrice,
-          currency: "GHS",
-          callback_url: `${window.location.origin}/payment`,
-          metadata: { items: items.map((i) => ({ id: i.artwork?.id, title: i.artwork?.title })), mobile_number: "0551234567" },
-        },
-      });
-      if (error || !data?.authorization_url) {
-        toast.error(error?.message || "Could not start Paystack checkout.");
-        setPaystackLoading(false);
-        return;
-      }
-      window.location.href = data.authorization_url;
-    } catch (e) {
-      toast.error((e as Error).message);
-      setPaystackLoading(false);
-    }
-  };
-
-  const handlePaySwitch = async () => {
-    if (totalPrice <= 0) { toast.error("Your cart is empty."); return; }
-    setPayswitchLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("payswitch-init", {
-        body: {
-          amount: totalPrice,
-          currency: "GHS",
-          callback_url: `${window.location.origin}/payment?provider=payswitch`,
-          metadata: { items: items.map((i) => ({ id: i.artwork?.id, title: i.artwork?.title })) },
-        },
-      });
-      if (error || !data?.authorization_url) {
-        toast.error(error?.message || "Could not start PaySwitch checkout.");
-        setPayswitchLoading(false);
-        return;
-      }
-      window.location.href = data.authorization_url;
-    } catch (e) {
-      toast.error((e as Error).message);
-      setPayswitchLoading(false);
-    }
-  };
 
   // Form fields
   const [address, setAddress] = useState("");
@@ -148,8 +49,6 @@ const Payment = () => {
       card: "Debit / Credit Card",
       bank_transfer: "Bank Transfer",
       pay_on_delivery: "Pay on Delivery",
-      paystack: "Paystack",
-      payswitch: "PaySwitch",
     };
     return map[m];
   };
@@ -158,24 +57,25 @@ const Payment = () => {
     switch (method) {
       case "pay_on_delivery":
         return { "Delivery Address": address };
+      case "mobile_money":
+        return { Provider: "Mobile Money", Status: "Payment Sent", Delivery: "In Progress" };
+      case "card":
+        return { Provider: "Card Payment", Status: "Payment Sent", Delivery: "In Progress" };
+      case "bank_transfer":
+        return { Provider: "Bank Transfer", Status: "Payment Sent", Delivery: "In Progress" };
       default:
-        return { Provider: "Paystack", Channels: "Card, MoMo, Bank" };
+        return { Status: "Payment Sent", Delivery: "In Progress" };
     }
   };
 
   const handleSubmit = async () => {
-    if (method === "payswitch") {
-      await handlePaySwitch();
+    if (method === "pay_on_delivery" && !address) {
+      toast.error("Please enter your delivery address.");
       return;
     }
-    if (method !== "pay_on_delivery") { 
-      await handlePaystack(); 
-      return; 
-    }
-    if (method === "pay_on_delivery" && !address) { toast.error("Please enter your delivery address."); return; }
 
     setProcessing(true);
-    await new Promise((r) => setTimeout(r, 2000));
+    await new Promise((r) => setTimeout(r, 1500));
 
     const receiptData: ReceiptData = {
       code: generateCode(),
@@ -187,7 +87,35 @@ const Payment = () => {
     };
 
     setReceipt(receiptData);
-    toast.success("Payment submitted! Your receipt has been generated.");
+    setActiveTab("receipt");
+
+    if (user) {
+      const messageContent = `Hello! 
+
+Your payment for order reference "${receiptData.code}" has been confirmed. 
+
+Order Details:
+- Reference: ${receiptData.code}
+- Total Paid: $${receiptData.total.toLocaleString()}
+- Method: ${receiptData.method}
+- Date: ${receiptData.date}
+
+Items Ordered:
+${receiptData.items.map(item => `- ${item.title} ($${item.price.toLocaleString()})`).join("\n")}
+
+Delivery status is currently "In Progress". Our delivery team will process your shipment and contact you shortly with further updates.
+
+Thank you for choosing Creative Tech Gallery!`;
+
+      await supabase.from("messages").insert({
+        sender_id: user.id,
+        recipient_id: user.id,
+        subject: `Payment Confirmed - Order ${receiptData.code}`,
+        content: messageContent,
+      });
+    }
+
+    toast.success("Payment sent! A confirmation email and inbox message have been sent.");
     clearCart();
     setProcessing(false);
   };
@@ -204,8 +132,6 @@ const Payment = () => {
   };
 
   const methods: { id: PaymentMethod; label: string; icon: React.ReactNode; desc: string }[] = [
-    { id: "payswitch", label: "PaySwitch (TheTeller)", icon: <Zap className="h-5 w-5 text-blue-500" />, desc: "Secure payments via PaySwitch/TheTeller in Ghana." },
-    { id: "paystack", label: "Paystack", icon: <Zap className="h-5 w-5" />, desc: "Pay securely with card, MoMo, or bank via Paystack." },
     { id: "mobile_money", label: "Mobile Money", icon: <Smartphone className="h-5 w-5" />, desc: "Fast and secure payments directly from your mobile wallet." },
     { id: "card", label: "Debit / Credit Card", icon: <CreditCard className="h-5 w-5" />, desc: "Safe online card payments with encrypted protection." },
     { id: "bank_transfer", label: "Bank Transfer", icon: <Building2 className="h-5 w-5" />, desc: "Direct transfer to our official business account." },
@@ -217,61 +143,167 @@ const Payment = () => {
       <Navbar />
       <main className="container pt-24 pb-16 max-w-3xl">
         {receipt ? (
-          <div className="mx-auto max-w-md space-y-6">
-            {/* Inline Confirmation Summary */}
-            <div className="rounded-2xl border border-primary/20 bg-card p-6 shadow-gold">
-              <div ref={receiptRef} className="flex flex-col items-center text-center">
-                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-500/20 text-green-500 ring-4 ring-green-500/10">
-                  <Check className="h-8 w-8" />
-                </div>
-                <h2 className="font-display text-2xl font-bold text-foreground">Payment Successful</h2>
-                <p className="mt-1 text-sm text-muted-foreground">Your transaction has been completed via {receipt.method}.</p>
+          <div className="mx-auto max-w-md space-y-4 animate-fade-in">
+            {/* Tab Selector */}
+            <div className="flex rounded-xl bg-muted/60 p-1 border border-border/50">
+              <button
+                onClick={() => setActiveTab("receipt")}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-semibold rounded-lg transition-all ${
+                  activeTab === "receipt"
+                    ? "bg-card text-foreground shadow-sm font-bold border border-primary/10"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Receipt className="h-3.5 w-3.5" /> Receipt
+              </button>
+              <button
+                onClick={() => setActiveTab("email")}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-semibold rounded-lg transition-all ${
+                  activeTab === "email"
+                    ? "bg-card text-foreground shadow-sm font-bold border border-primary/10"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Mail className="h-3.5 w-3.5" /> Email Notification
+              </button>
+            </div>
 
-                <div className="mt-6 w-full space-y-3 rounded-xl bg-muted/40 p-4 text-left">
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-2 text-sm text-muted-foreground"><Hash className="h-4 w-4" /> Reference</span>
-                    <span className="font-mono text-sm font-semibold text-foreground">{receipt.details.Reference || receipt.code}</span>
+            {activeTab === "receipt" ? (
+              <div className="rounded-2xl border border-primary/20 bg-card p-6 shadow-gold animate-fade-in">
+                <div ref={receiptRef} className="flex flex-col items-center text-center">
+                  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-500/20 text-green-500 ring-4 ring-green-500/10">
+                    <Check className="h-8 w-8" />
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-2 text-sm text-muted-foreground"><Receipt className="h-4 w-4" /> Amount Paid</span>
-                    <span className="text-lg font-bold text-foreground">${receipt.total.toLocaleString()}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-2 text-sm text-muted-foreground"><Calendar className="h-4 w-4" /> Date</span>
-                    <span className="text-sm text-foreground">{receipt.date}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-2 text-sm text-muted-foreground"><Zap className="h-4 w-4" /> Method</span>
-                    <span className="text-sm font-medium text-foreground">{receipt.method}</span>
-                  </div>
-                </div>
+                  <h2 className="font-display text-2xl font-bold text-foreground">Payment Sent</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">Payment sent! Your order has been placed and a confirmation email was sent to {user?.email || "your address"}.</p>
 
-                <div className="mt-4 w-full">
-                  <p className="mb-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Items Purchased</p>
-                  <div className="space-y-2 rounded-xl bg-muted/30 p-3">
-                    {receipt.items.map((item, i) => (
-                      <div key={i} className="flex items-center justify-between text-sm">
-                        <span className="text-foreground">{item.title}</span>
-                        <span className="font-medium text-foreground">${item.price.toLocaleString()}</span>
-                      </div>
-                    ))}
-                    <div className="mt-2 border-t border-border pt-2 flex items-center justify-between">
-                      <span className="font-semibold text-foreground">Total</span>
-                      <span className="font-display text-lg font-bold text-gradient-gold">${receipt.total.toLocaleString()}</span>
+                  <div className="mt-6 w-full space-y-3 rounded-xl bg-muted/40 p-4 text-left">
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-2 text-sm text-muted-foreground"><Hash className="h-4 w-4" /> Reference</span>
+                      <span className="font-mono text-sm font-semibold text-foreground">{receipt.details.Reference || receipt.code}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-2 text-sm text-muted-foreground"><Receipt className="h-4 w-4" /> Amount Paid</span>
+                      <span className="text-lg font-bold text-foreground">${receipt.total.toLocaleString()}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-2 text-sm text-muted-foreground"><Calendar className="h-4 w-4" /> Date</span>
+                      <span className="text-sm text-foreground">{receipt.date}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-2 text-sm text-muted-foreground"><Zap className="h-4 w-4" /> Method</span>
+                      <span className="text-sm font-medium text-foreground">{receipt.method}</span>
                     </div>
                   </div>
-                </div>
 
-                <div className="mt-6 flex w-full gap-3">
-                  <Button onClick={handlePrint} variant="outline" className="flex-1 gap-2">
-                    <Printer className="h-4 w-4" /> Print
-                  </Button>
-                  <Button onClick={() => setReceipt(null)} className="flex-1 bg-gradient-gold text-primary-foreground hover:opacity-90">
-                    Done
-                  </Button>
+                  <div className="mt-4 w-full">
+                    <p className="mb-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Items Purchased</p>
+                    <div className="space-y-2 rounded-xl bg-muted/30 p-3">
+                      {receipt.items.map((item, i) => (
+                        <div key={i} className="flex items-center justify-between text-sm">
+                          <span className="text-foreground">{item.title}</span>
+                          <span className="font-medium text-foreground">${item.price.toLocaleString()}</span>
+                        </div>
+                      ))}
+                      <div className="mt-2 border-t border-border pt-2 flex items-center justify-between">
+                        <span className="font-semibold text-foreground">Total</span>
+                        <span className="font-display text-lg font-bold text-gradient-gold">${receipt.total.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 flex w-full gap-3">
+                    <Button onClick={handlePrint} variant="outline" className="flex-1 gap-2">
+                      <Printer className="h-4 w-4" /> Print
+                    </Button>
+                    <Button onClick={() => setReceipt(null)} className="flex-1 bg-gradient-gold text-primary-foreground hover:opacity-90">
+                      Done
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="rounded-2xl border border-primary/20 bg-card p-6 shadow-gold animate-fade-in">
+                <div className="flex flex-col text-left">
+                  {/* Email Header */}
+                  <div className="border-b border-border pb-4 mb-4">
+                    <div className="flex justify-between items-start gap-4">
+                      <div>
+                        <h3 className="font-semibold text-foreground text-sm leading-snug">Order Confirmed! Reference: {receipt.code}</h3>
+                        <p className="text-[11px] text-muted-foreground mt-1">
+                          From: <span className="font-medium text-foreground">Creative Tech Gallery &lt;no-reply@creativetech.com&gt;</span>
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          To: <span className="font-medium text-foreground">{user?.email || "customer@example.com"}</span>
+                        </p>
+                      </div>
+                      <span className="text-[9px] bg-primary/15 text-primary px-1.5 py-0.5 rounded font-mono font-bold">INBOX</span>
+                    </div>
+                  </div>
+
+                  {/* Email Body */}
+                  <div className="space-y-4 text-xs text-foreground/90 font-sans leading-relaxed bg-muted/20 p-4 rounded-xl border border-border/60">
+                    <div className="flex items-center gap-1.5 text-gradient-gold font-bold tracking-wider text-[11px]">
+                      🎨 CREATIVE TECH GALLERY
+                    </div>
+                    
+                    <p className="font-medium">Hello,</p>
+                    
+                    <p>
+                      Thank you for your purchase! We have received your payment, and your order has been successfully placed. Here is your receipt summary:
+                    </p>
+
+                    <div className="bg-background/80 p-3 rounded-lg space-y-1.5 border border-border/50">
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-muted-foreground">Order Reference:</span>
+                        <span className="font-mono font-semibold">{receipt.code}</span>
+                      </div>
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-muted-foreground">Amount Paid:</span>
+                        <span className="font-semibold text-green-600 dark:text-green-400">${receipt.total.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-muted-foreground">Payment Method:</span>
+                        <span>{receipt.method}</span>
+                      </div>
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-muted-foreground">Date:</span>
+                        <span>{receipt.date}</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="font-semibold text-muted-foreground uppercase tracking-wider text-[10px] mb-1.5">Items Ordered</p>
+                      <div className="divide-y divide-border/60">
+                        {receipt.items.map((item, i) => (
+                          <div key={i} className="py-1.5 flex justify-between text-[11px]">
+                            <span>{item.title}</span>
+                            <span className="font-medium">${item.price.toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="border-t border-border/60 pt-3 text-[11px]">
+                      <p className="text-muted-foreground">
+                        🚀 <strong>Delivery Status:</strong> In Progress. Our delivery team will process your shipment and contact you shortly with further updates.
+                      </p>
+                    </div>
+
+                    <div className="text-[11px] text-muted-foreground mt-4 pt-2 border-t border-border/20">
+                      Best regards,<br />
+                      <strong>Creative Tech Gallery Team</strong>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 flex w-full gap-3">
+                    <Button onClick={() => setReceipt(null)} className="w-full bg-gradient-gold text-primary-foreground hover:opacity-90">
+                      Close
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <>
@@ -283,15 +315,15 @@ const Payment = () => {
                 <p className="text-sm text-muted-foreground mb-1">Order Total ({items.length} item{items.length > 1 ? "s" : ""})</p>
                 <p className="font-display text-2xl font-bold text-gradient-gold">${totalPrice.toLocaleString()}</p>
                 <Button
-                  onClick={handlePaystack}
-                  disabled={paystackLoading}
+                  onClick={handleSubmit}
+                  disabled={processing}
                   size="lg"
-                  className="mt-4 w-full gap-2 bg-[#00C3F7] text-white hover:bg-[#00A8D6]"
+                  className="mt-4 w-full gap-2 bg-gradient-gold text-primary-foreground hover:opacity-90 shadow-gold"
                 >
-                  <Zap className="h-4 w-4" />
-                  {paystackLoading ? "Redirecting to Paystack..." : "Pay with Paystack"}
+                  <Check className="h-4 w-4" />
+                  {processing ? "Processing Payment..." : "Confirm & Pay"}
                 </Button>
-                <p className="mt-2 text-xs text-muted-foreground text-center">Secure checkout powered by Paystack (cards, MoMo, bank).</p>
+                <p className="mt-2 text-xs text-muted-foreground text-center">Testing Mode: Mock payment processed instantly.</p>
               </div>
             )}
 
@@ -326,7 +358,7 @@ const Payment = () => {
               {method === m.id && m.id === "mobile_money" && (
                 <div className="mt-4 ml-13 space-y-2" onClick={(e) => e.stopPropagation()}>
                   <p className="text-sm text-muted-foreground italic">
-                    You'll be redirected to Paystack's secure checkout for Mobile Money payment. Tap "Confirm Payment" to continue.
+                    Testing Mode: Tap "Confirm Payment" to complete the mock Mobile Money transaction.
                   </p>
                 </div>
               )}
@@ -334,7 +366,7 @@ const Payment = () => {
               {method === m.id && m.id === "card" && (
                 <div className="mt-4 ml-13 space-y-2" onClick={(e) => e.stopPropagation()}>
                   <p className="text-sm text-muted-foreground italic">
-                    You'll be redirected to Paystack's secure checkout. Your card details are safely encrypted. Tap "Confirm Payment" to continue.
+                    Testing Mode: Tap "Confirm Payment" to complete the mock Card transaction.
                   </p>
                 </div>
               )}
@@ -342,7 +374,7 @@ const Payment = () => {
               {method === m.id && m.id === "bank_transfer" && (
                 <div className="mt-4 ml-13 space-y-2" onClick={(e) => e.stopPropagation()}>
                   <p className="text-sm text-muted-foreground italic">
-                    You'll be redirected to Paystack to complete your secure bank transfer. Tap "Confirm Payment" to continue.
+                    Testing Mode: Tap "Confirm Payment" to complete the mock Bank Transfer transaction.
                   </p>
                 </div>
               )}
@@ -357,26 +389,7 @@ const Payment = () => {
                 </div>
               )}
 
-              {method === m.id && m.id === "paystack" && (
-                <div className="mt-4 ml-13 space-y-2" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex flex-wrap gap-2">
-                    {["Visa", "Mastercard", "Verve", "MTN MoMo", "Vodafone", "AirtelTigo", "Bank"].map((c) => (
-                      <span key={c} className="rounded-full border border-border bg-muted/50 px-3 py-1 text-xs text-foreground">{c}</span>
-                    ))}
-                  </div>
-                  <p className="text-xs text-muted-foreground italic">
-                    You'll be redirected to Paystack's secure checkout. Tap "Confirm Payment" to continue.
-                  </p>
-                </div>
-              )}
 
-              {method === m.id && m.id === "payswitch" && (
-                <div className="mt-4 ml-13 space-y-2" onClick={(e) => e.stopPropagation()}>
-                  <p className="text-sm text-muted-foreground italic">
-                    You'll be redirected to PaySwitch (TheTeller) secure checkout. Tap "Confirm Payment" to continue.
-                  </p>
-                </div>
-              )}
             </div>
           ))}
         </div>

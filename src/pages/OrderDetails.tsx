@@ -122,12 +122,12 @@ const OrderDetails = () => {
       toast.error("Please select your country");
       return;
     }
-    setOrdering(true);
-    await addToCart(artwork.id);
-    setOrdering(false);
-    toast.success(`"${artwork.title}" added to cart!`);
-    window.dispatchEvent(new CustomEvent("open-cart-drawer"));
-    navigate("/gallery");
+    if (!alreadyInCart) {
+      setOrdering(true);
+      await addToCart(artwork.id);
+      setOrdering(false);
+    }
+    navigate("/payment");
   };
 
   const handlePrint = (e: React.MouseEvent) => {
@@ -178,10 +178,10 @@ const OrderDetails = () => {
             </button>
             <button
               onClick={handleConfirmOrder}
-              disabled={ordering || alreadyInCart}
+              disabled={ordering}
               className="flex items-center gap-2 px-6 py-2 rounded-lg border-none bg-gradient-to-br from-[#c9a84c] to-[#e8c96a] text-sm text-white font-semibold shadow-md disabled:opacity-50 hover:opacity-90 transition-opacity"
             >
-              <ShoppingBag size={15} /> {alreadyInCart ? "In Cart" : ordering ? "Adding…" : "Confirm Order"}
+              <ShoppingBag size={15} /> {ordering ? "Adding…" : "Confirm Order"}
             </button>
           </div>
         </div>
