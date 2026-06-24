@@ -67,12 +67,14 @@ const Index = () => {
 
   const fetchTrendingArtworks = async () => {
     // @ts-ignore - Supabase types are out of sync with the DB schema, causing deep instantiation errors
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("artworks")
       .select("id, title, price, medium, category, image_url, available, artist_id, artists(name)")
-      .eq("is_trending", true)
-      .order("created_at", { ascending: false })
-      .limit(6);
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching trending artworks:", error);
+    }
 
     if (data) {
       setTrendingArtworks(
