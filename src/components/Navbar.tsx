@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, startTransition } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Menu, X, ShoppingBag, LogOut, UserCircle, DollarSign, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -150,7 +150,7 @@ const Navbar = () => {
             )}
             <ModeToggle />
             {user && (
-              <Button variant="ghost" size="icon" className="relative text-muted-foreground" onClick={() => setCartOpen(true)}>
+              <Button variant="ghost" size="icon" className="relative text-muted-foreground" onClick={() => startTransition(() => setCartOpen(true))}>
                 <ShoppingBag className="h-5 w-5" />
                 {items.length > 0 && (
                   <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
@@ -159,7 +159,7 @@ const Navbar = () => {
                 )}
               </Button>
             )}
-            <button className="text-foreground" onClick={() => setMobileOpen(!mobileOpen)}>
+            <button className="text-foreground" onClick={() => startTransition(() => setMobileOpen(!mobileOpen))}>
               {mobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
           </div>

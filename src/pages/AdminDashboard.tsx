@@ -5,6 +5,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { supabase } from "@/integrations/supabase/client";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,6 +30,7 @@ interface DbArtwork {
   image_url: string | null;
   description: string | null;
   available: boolean;
+  is_trending: boolean;
   artist_id: string | null;
 }
 
@@ -38,6 +40,14 @@ interface DbArtist {
   bio: string | null;
   specialty: string | null;
   image_url: string | null;
+  real_name: string | null;
+  username: string | null;
+  email: string | null;
+  phone: string | null;
+  medium_used: string | null;
+  art_style: string | null;
+  city: string | null;
+  country: string | null;
 }
 
 const AdminDashboard = () => {
@@ -49,6 +59,7 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
   const [showDeleteAllArtistsDialog, setShowDeleteAllArtistsDialog] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; type: "artworks" | "artists"; name: string; image_url?: string | null } | null>(null);
 
   // Form state
   const [showForm, setShowForm] = useState(false);
@@ -68,8 +79,8 @@ const AdminDashboard = () => {
       supabase.from("artworks").select("*").order("created_at", { ascending: false }),
       supabase.from("artists").select("*").order("name"),
     ]);
-    setArtworks((artRes.data as DbArtwork[]) ?? []);
-    setArtists((artisRes.data as DbArtist[]) ?? []);
+    setArtworks((artRes.data as unknown as DbArtwork[]) ?? []);
+    setArtists((artisRes.data as unknown as DbArtist[]) ?? []);
     setLoading(false);
   };
 
@@ -101,6 +112,7 @@ const AdminDashboard = () => {
       image_url: imageUrl,
       description: formData.description || null,
       available: formData.available ?? true,
+      is_trending: formData.is_trending ?? false,
     };
 
     if (editingId) {
@@ -127,6 +139,14 @@ const AdminDashboard = () => {
       bio: formData.bio || null,
       specialty: formData.specialty || null,
       image_url: imageUrl,
+      real_name: formData.real_name || null,
+      username: formData.username || null,
+      email: formData.email || null,
+      phone: formData.phone || null,
+      medium_used: formData.medium_used || null,
+      art_style: formData.art_style || null,
+      city: formData.city || null,
+      country: formData.country || null,
     };
 
     if (editingId) {
@@ -142,11 +162,41 @@ const AdminDashboard = () => {
     fetchData();
   };
 
-  const handleDelete = async (id: string, type: "artworks" | "artists") => {
-    if (!confirm("Are you sure?")) return;
+  const handleDelete = (id: string, type: "artworks" | "artists", name: string, image_url?: string | null) => {
+    setDeleteTarget({ id, type, name, image_url });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    const { id, type, image_url } = deleteTarget;
+
+    if (type === "artists") {
+      // Delete artworks first to avoid foreign key constraints
+      const { error: artworksError } = await supabase
+        .from("artworks")
+        .delete()
+        .eq("artist_id", id);
+      
+      if (artworksError) {
+        console.error("Failed to delete artworks", artworksError);
+        toast.error("Failed to delete associated artworks");
+        setDeleteTarget(null);
+        return;
+      }
+    }
+
     const { error } = await supabase.from(type).delete().eq("id", id);
-    if (error) { toast.error("Delete failed"); return; }
-    toast.success("Deleted");
+    if (error) { toast.error("Delete failed"); setDeleteTarget(null); return; }
+    // Clean up storage image
+    if (image_url) {
+      try {
+        const bucket = type === "artworks" ? "artwork-images" : "artist-images";
+        const fileName = new URL(image_url).pathname.split("/").pop();
+        if (fileName) await supabase.storage.from(bucket).remove([fileName]);
+      } catch (_) {}
+    }
+    toast.success(type === "artworks" ? "Artwork deleted" : "Artist deleted");
+    setDeleteTarget(null);
     fetchData();
   };
 
@@ -329,6 +379,24 @@ const AdminDashboard = () => {
             </AlertDialogContent>
           </AlertDialog>
 
+          {/* Single Item Delete Confirmation Dialog */}
+          <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete "{deleteTarget?.name}"?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete this {deleteTarget?.type === "artworks" ? "artwork" : "artist"} and remove its image from storage. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Yes, delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
           {/* Reviews Tab */}
           {tab === "reviews" && isAdmin && (
             <div className="mt-6">
@@ -380,6 +448,10 @@ const AdminDashboard = () => {
                   <Switch checked={formData.available ?? true} onCheckedChange={(v) => setFormData({ ...formData, available: v })} />
                   <Label className="text-foreground">Available</Label>
                 </div>
+                <div className="flex items-center gap-3 pt-6">
+                  <Switch checked={formData.is_trending ?? false} onCheckedChange={(v) => setFormData({ ...formData, is_trending: v })} />
+                  <Label className="text-foreground">Trending on Home Page</Label>
+                </div>
               </div>
               <div>
                 <Label className="text-foreground">Description</Label>
@@ -403,9 +475,43 @@ const AdminDashboard = () => {
                 <Label className="text-foreground">Name *</Label>
                 <Input value={formData.name || ""} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="bg-secondary border-border text-foreground" />
               </div>
-              <div>
-                <Label className="text-foreground">Specialty</Label>
-                <Input value={formData.specialty || ""} onChange={(e) => setFormData({ ...formData, specialty: e.target.value })} className="bg-secondary border-border text-foreground" />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Label className="text-foreground">Real Name</Label>
+                  <Input value={formData.real_name || ""} onChange={(e) => setFormData({ ...formData, real_name: e.target.value })} className="bg-secondary border-border text-foreground" />
+                </div>
+                <div>
+                  <Label className="text-foreground">Username</Label>
+                  <Input value={formData.username || ""} onChange={(e) => setFormData({ ...formData, username: e.target.value })} className="bg-secondary border-border text-foreground" />
+                </div>
+                <div>
+                  <Label className="text-foreground">Email</Label>
+                  <Input value={formData.email || ""} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="bg-secondary border-border text-foreground" />
+                </div>
+                <div>
+                  <Label className="text-foreground">Phone</Label>
+                  <Input value={formData.phone || ""} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="bg-secondary border-border text-foreground" />
+                </div>
+                <div>
+                  <Label className="text-foreground">Specialty</Label>
+                  <Input value={formData.specialty || ""} onChange={(e) => setFormData({ ...formData, specialty: e.target.value })} className="bg-secondary border-border text-foreground" />
+                </div>
+                <div>
+                  <Label className="text-foreground">Art Style</Label>
+                  <Input value={formData.art_style || ""} onChange={(e) => setFormData({ ...formData, art_style: e.target.value })} className="bg-secondary border-border text-foreground" />
+                </div>
+                <div>
+                  <Label className="text-foreground">Medium Used</Label>
+                  <Input value={formData.medium_used || ""} onChange={(e) => setFormData({ ...formData, medium_used: e.target.value })} className="bg-secondary border-border text-foreground" />
+                </div>
+                <div>
+                  <Label className="text-foreground">City</Label>
+                  <Input value={formData.city || ""} onChange={(e) => setFormData({ ...formData, city: e.target.value })} className="bg-secondary border-border text-foreground" />
+                </div>
+                <div>
+                  <Label className="text-foreground">Country</Label>
+                  <Input value={formData.country || ""} onChange={(e) => setFormData({ ...formData, country: e.target.value })} className="bg-secondary border-border text-foreground" />
+                </div>
               </div>
               <div>
                 <Label className="text-foreground">Bio</Label>
@@ -435,7 +541,7 @@ const AdminDashboard = () => {
                   </div>
                   <div className="flex gap-2">
                     <Button variant="ghost" size="icon" onClick={() => startEdit(a)} className="text-muted-foreground hover:text-primary"><Pencil className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(a.id, "artworks")} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(a.id, "artworks", a.title, a.image_url)} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
                   </div>
                 </div>
               ))}
@@ -454,7 +560,7 @@ const AdminDashboard = () => {
                   </div>
                   <div className="flex gap-2">
                     <Button variant="ghost" size="icon" onClick={() => startEdit(a)} className="text-muted-foreground hover:text-primary"><Pencil className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(a.id, "artists")} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(a.id, "artists", a.name, a.image_url)} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
                   </div>
                 </div>
               ))}

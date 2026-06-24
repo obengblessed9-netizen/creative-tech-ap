@@ -5,7 +5,11 @@ import Footer from "@/components/Footer";
 import { supabase } from "@/integrations/supabase/client";
 import ArtworkCard from "@/components/ArtworkCard";
 import { type ArtworkCardData } from "@/components/ArtworkCard";
-import { ShieldCheck } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { ShieldCheck, Trash2 } from "lucide-react";
 
 interface DbArtist {
   id: string;
@@ -14,6 +18,7 @@ interface DbArtist {
   specialty: string | null;
   image_url: string | null;
   verified: boolean;
+  user_id: string | null;
 }
 
 const Artists = () => {
@@ -21,39 +26,89 @@ const Artists = () => {
   const [artworksByArtist, setArtworksByArtist] = useState<Record<string, ArtworkCardData[]>>({});
   const [loading, setLoading] = useState(true);
 
+  const { user, isAdmin } = useAuth();
+  const [deleteArtistTarget, setDeleteArtistTarget] = useState<{ id: string; name: string; image: string | null } | null>(null);
+  const [deleteArtworkTarget, setDeleteArtworkTarget] = useState<{ id: string; title: string; image: string } | null>(null);
+
+  const fetchData = async () => {
+    setLoading(true);
+    const [artistsRes, artworksRes] = await Promise.all([
+      supabase.from("artists").select("id, name, bio, specialty, image_url, verified, user_id").order("created_at", { ascending: false }),
+      supabase.from("artworks").select("id, title, price, medium, category, image_url, available, artist_id, description, dimensions, year, artists(name, user_id)"),
+    ]);
+
+    setArtists((artistsRes.data as DbArtist[]) ?? []);
+
+    const grouped: Record<string, ArtworkCardData[]> = {};
+    for (const a of (artworksRes.data ?? []) as any[]) {
+      const artistId = a.artist_id ?? "";
+      if (!grouped[artistId]) grouped[artistId] = [];
+      grouped[artistId].push({
+        id: a.id,
+        title: a.title,
+        artist: a.artists?.name ?? "Unknown",
+        artistId,
+        artistUserId: a.artists?.user_id ?? "",
+        price: Number(a.price),
+        medium: a.medium ?? "",
+        dimensions: a.dimensions ?? "",
+        year: a.year ?? 0,
+        category: a.category ?? "Other",
+        image: a.image_url ?? "",
+        description: a.description ?? "",
+        available: a.available,
+      });
+    }
+    setArtworksByArtist(grouped);
+    setLoading(false);
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      const [artistsRes, artworksRes] = await Promise.all([
-        supabase.from("artists").select("id, name, bio, specialty, image_url, verified").order("created_at", { ascending: false }),
-        supabase.from("artworks").select("id, title, price, medium, category, image_url, available, artist_id, description, dimensions, year, artists(name)"),
-      ]);
-
-      setArtists((artistsRes.data as DbArtist[]) ?? []);
-
-      const grouped: Record<string, ArtworkCardData[]> = {};
-      for (const a of (artworksRes.data ?? []) as any[]) {
-        const artistId = a.artist_id ?? "";
-        if (!grouped[artistId]) grouped[artistId] = [];
-        grouped[artistId].push({
-          id: a.id,
-          title: a.title,
-          artist: a.artists?.name ?? "Unknown",
-          artistId,
-          price: Number(a.price),
-          medium: a.medium ?? "",
-          dimensions: a.dimensions ?? "",
-          year: a.year ?? 0,
-          category: a.category ?? "Other",
-          image: a.image_url ?? "",
-          description: a.description ?? "",
-          available: a.available,
-        });
-      }
-      setArtworksByArtist(grouped);
-      setLoading(false);
-    };
     fetchData();
   }, []);
+
+  const confirmDeleteArtist = async () => {
+    if (!deleteArtistTarget) return;
+    const { id, image } = deleteArtistTarget;
+
+    // First delete associated artworks to prevent foreign key constraint violations
+    const { error: artworkError } = await supabase.from("artworks").delete().eq("artist_id", id);
+    if (artworkError) {
+      toast.error("Failed to delete artist's artworks: " + artworkError.message);
+      setDeleteArtistTarget(null);
+      return;
+    }
+
+    const { error } = await supabase.from("artists").delete().eq("id", id);
+    if (error) { toast.error("Failed to delete artist: " + error.message); setDeleteArtistTarget(null); return; }
+    
+    if (image) {
+      try {
+        const fileName = new URL(image).pathname.split("/").pop();
+        if (fileName) await supabase.storage.from("artist-images").remove([fileName]);
+      } catch (_) {}
+    }
+    toast.success("Artist deleted successfully");
+    setDeleteArtistTarget(null);
+    fetchData();
+  };
+
+  const confirmDeleteArtwork = async () => {
+    if (!deleteArtworkTarget) return;
+    const { id, image } = deleteArtworkTarget;
+    const { error } = await supabase.from("artworks").delete().eq("id", id);
+    if (error) { toast.error("Failed to delete artwork: " + error.message); setDeleteArtworkTarget(null); return; }
+    
+    if (image) {
+      try {
+        const fileName = new URL(image).pathname.split("/").pop();
+        if (fileName) await supabase.storage.from("artwork-images").remove([fileName]);
+      } catch (_) {}
+    }
+    toast.success("Artwork deleted successfully");
+    setDeleteArtworkTarget(null);
+    fetchData();
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -99,13 +154,31 @@ const Artists = () => {
                         </Link>
                         {artist.specialty && <p className="mt-1 text-sm font-medium text-primary">{artist.specialty}</p>}
                         {artist.bio && <p className="mt-2 max-w-xl text-sm text-muted-foreground leading-relaxed">{artist.bio}</p>}
+                        {(isAdmin || (user && user.id === artist.user_id)) && (
+                          <Button 
+                            variant="destructive" 
+                            size="sm" 
+                            className="mt-4"
+                            onClick={() => setDeleteArtistTarget({ id: artist.id, name: artist.name, image: artist.image_url })}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" /> Delete Artist
+                          </Button>
+                        )}
                       </div>
                     </div>
                     {artistWorks.length > 0 && (
                       <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                        {artistWorks.map((work, i) => (
-                          <ArtworkCard key={work.id} artwork={work} index={i} />
-                        ))}
+                        {artistWorks.map((work, i) => {
+                          const canDeleteWork = isAdmin || (user && work.artistUserId === user.id);
+                          return (
+                            <ArtworkCard 
+                              key={work.id} 
+                              artwork={work} 
+                              index={i} 
+                              onDelete={canDeleteWork ? () => setDeleteArtworkTarget({ id: work.id, title: work.title, image: work.image }) : undefined}
+                            />
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -113,6 +186,42 @@ const Artists = () => {
               })}
             </div>
           )}
+
+          {/* Delete Artist Dialog */}
+          <AlertDialog open={!!deleteArtistTarget} onOpenChange={(open) => { if (!open) setDeleteArtistTarget(null); }}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Artist Profile?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete the profile for "{deleteArtistTarget?.name}" and remove their image from storage. Artworks may be cascadingly deleted by the database. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={confirmDeleteArtist} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Yes, delete artist
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          {/* Delete Artwork Dialog */}
+          <AlertDialog open={!!deleteArtworkTarget} onOpenChange={(open) => { if (!open) setDeleteArtworkTarget(null); }}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Artwork "{deleteArtworkTarget?.title}"?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete this artwork and remove its image from storage. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={confirmDeleteArtwork} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Yes, delete artwork
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </main>
       <Footer />

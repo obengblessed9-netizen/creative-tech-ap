@@ -105,6 +105,7 @@ const ArtistProfile = () => {
   const [bookingMessage, setBookingMessage] = useState("");
   const [editingArtworkId, setEditingArtworkId] = useState<string | null>(null);
   const [deleteArtworkId, setDeleteArtworkId] = useState<string | null>(null);
+  const [showDeleteArtistDialog, setShowDeleteArtistDialog] = useState(false);
 
   const isOwner = user && artist?.user_id === user.id;
   const canManage = isOwner || isAdmin;
@@ -281,14 +282,55 @@ const ArtistProfile = () => {
 
   const confirmDeleteArtwork = async () => {
     if (!deleteArtworkId) return;
+
+    // Get the image URL first
+    const { data: art } = await supabase.from("artworks").select("image_url").eq("id", deleteArtworkId).single();
+
+    // Now permanently delete the artwork itself (DB will cascade-delete likes, comments, etc.)
     const { error } = await supabase.from("artworks").delete().eq("id", deleteArtworkId);
     if (error) {
-      toast.error("Failed to delete artwork");
+      toast.error("Failed to delete artwork: " + error.message);
     } else {
-      toast.success("Artwork deleted");
+      // Remove image from storage
+      if (art?.image_url) {
+        try {
+          const url = new URL(art.image_url);
+          const pathParts = url.pathname.split("/");
+          const fileName = pathParts[pathParts.length - 1];
+          if (fileName) await supabase.storage.from("artwork-images").remove([fileName]);
+        } catch (_) {}
+      }
+      toast.success("Artwork permanently deleted!");
       setArtworks((prev) => prev.filter((a) => a.id !== deleteArtworkId));
     }
     setDeleteArtworkId(null);
+  };
+
+  const handleDeleteArtistProfile = async () => {
+    if (!artist) return;
+    
+    // Delete artworks first to avoid foreign key constraints
+    const { error: artworksError } = await supabase
+      .from("artworks")
+      .delete()
+      .eq("artist_id", artist.id);
+      
+    if (artworksError) {
+      console.error("Failed to delete artworks", artworksError);
+      toast.error("Failed to delete associated artworks");
+      setShowDeleteArtistDialog(false);
+      return;
+    }
+
+    const { error } = await supabase.from("artists").delete().eq("id", artist.id);
+    
+    if (error) {
+      toast.error("Failed to delete artist profile");
+    } else {
+      toast.success("Artist profile permanently deleted!");
+      navigate("/artists");
+    }
+    setShowDeleteArtistDialog(false);
   };
 
   const handleEditArtwork = (artworkId: string) => {
@@ -333,14 +375,19 @@ const ArtistProfile = () => {
             {/* Left Sidebar */}
             <div className="space-y-4">
               <div className="rounded-lg border border-border bg-card p-6">
-                {isOwner && !editing && (
-                  <div className="mb-4 flex justify-end gap-2">
+                {canManage && !editing && (
+                  <div className="mb-4 flex flex-wrap justify-end gap-2">
                     <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary" onClick={() => setEditing(true)}>
-                      <Pencil className="mr-1 h-4 w-4" /> Edit
+                      <Pencil className="mr-1 h-4 w-4" /> Edit Profile
                     </Button>
-                    <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary" onClick={() => navigate("/profile")}>
-                      <Settings className="mr-1 h-4 w-4" /> Settings
+                    <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => setShowDeleteArtistDialog(true)}>
+                      <Trash2 className="mr-1 h-4 w-4" /> Delete Profile
                     </Button>
+                    {isOwner && (
+                      <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary" onClick={() => navigate("/profile")}>
+                        <Settings className="mr-1 h-4 w-4" /> Settings
+                      </Button>
+                    )}
                   </div>
                 )}
 
@@ -756,6 +803,23 @@ const ArtistProfile = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDeleteArtwork} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showDeleteArtistDialog} onOpenChange={setShowDeleteArtistDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this artist profile?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the artist profile and all of their artworks.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteArtistProfile} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

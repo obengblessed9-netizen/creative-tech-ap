@@ -1,7 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = "YOUR_SUPABASE_URL";
-const supabaseAnonKey = "YOUR_SUPABASE_ANON_KEY"; // Use service_role key for full access
+import "dotenv/config";
+const supabaseUrl = process.env.VITE_SUPABASE_URL || "";
+const supabaseAnonKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || ""; // Use publishable key
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 

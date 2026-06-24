@@ -8,7 +8,9 @@ const corsHeaders = {
 
 const FALLBACK = { color: "#ffffff", name: "Clean white", reason: "Neutral default that works for any subject." };
 
-Deno.serve(async (req) => {
+declare const Deno: any;
+
+Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
     const { category, description, style } = await req.json().catch(() => ({}));

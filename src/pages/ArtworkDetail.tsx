@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, ShoppingBag, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Navbar from "@/components/Navbar";
@@ -34,6 +34,7 @@ const ArtworkDetail = () => {
   const { id } = useParams();
   const { user } = useAuth();
   const { addToCart, isInCart } = useCart();
+  const navigate = useNavigate();
   const [artwork, setArtwork] = useState<ArtworkData | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState<string>("");

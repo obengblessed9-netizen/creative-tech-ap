@@ -8,6 +8,9 @@ import Footer from "@/components/Footer";
 import ArtworkCard from "@/components/ArtworkCard";
 import { type ArtworkCardData } from "@/components/ArtworkCard";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 const Gallery = () => {
   const [searchParams] = useSearchParams();
@@ -16,34 +19,66 @@ const Gallery = () => {
   const [sortBy, setSortBy] = useState("newest");
   const [artworks, setArtworks] = useState<ArtworkCardData[]>([]);
   const [loading, setLoading] = useState(true);
+  const { user, isAdmin } = useAuth();
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string; image: string } | null>(null);
+
+  const fetchArtworks = async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from("artworks")
+      .select("id, title, price, medium, category, image_url, available, artist_id, description, dimensions, year, artists(name, user_id)")
+      .order("created_at", { ascending: false });
+
+    setArtworks(
+      (data ?? []).map((a: any) => ({
+        id: a.id,
+        title: a.title,
+        artist: a.artists?.name ?? "Unknown",
+        artistId: a.artist_id ?? "",
+        artistUserId: a.artists?.user_id ?? "",
+        price: Number(a.price),
+        medium: a.medium ?? "",
+        dimensions: a.dimensions ?? "",
+        year: a.year ?? 0,
+        category: a.category ?? "Other",
+        image: a.image_url ?? "",
+        description: a.description ?? "",
+        available: a.available,
+      }))
+    );
+    setLoading(false);
+  };
 
   useEffect(() => {
-    const fetchArtworks = async () => {
-      const { data } = await supabase
-        .from("artworks")
-        .select("id, title, price, medium, category, image_url, available, artist_id, description, dimensions, year, artists(name)")
-        .order("created_at", { ascending: false });
-
-      setArtworks(
-        (data ?? []).map((a: any) => ({
-          id: a.id,
-          title: a.title,
-          artist: a.artists?.name ?? "Unknown",
-          artistId: a.artist_id ?? "",
-          price: Number(a.price),
-          medium: a.medium ?? "",
-          dimensions: a.dimensions ?? "",
-          year: a.year ?? 0,
-          category: a.category ?? "Other",
-          image: a.image_url ?? "",
-          description: a.description ?? "",
-          available: a.available,
-        }))
-      );
-      setLoading(false);
-    };
     fetchArtworks();
   }, []);
+
+  const handleDeleteClick = (id: string, title: string, image: string) => {
+    setDeleteTarget({ id, title, image });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    const { id, image } = deleteTarget;
+
+    // Permanently delete the artwork itself (DB will cascade-delete likes, comments, etc.)
+    const { error } = await supabase.from("artworks").delete().eq("id", id);
+    if (error) { toast.error("Failed to delete artwork: " + error.message); setDeleteTarget(null); return; }
+
+    // Remove the image from storage
+    if (image) {
+      try {
+        const url = new URL(image);
+        const pathParts = url.pathname.split("/");
+        const fileName = pathParts[pathParts.length - 1];
+        if (fileName) await supabase.storage.from("artwork-images").remove([fileName]);
+      } catch (_) {}
+    }
+
+    toast.success("Artwork permanently deleted!");
+    setDeleteTarget(null);
+    fetchArtworks();
+  };
 
   const categoryGroups = [
     { label: "🖼️ Prints & Merchandise", options: ["T-Shirt Designs", "Sticker Designs", "Wall Art Prints"] },
@@ -152,9 +187,17 @@ const Gallery = () => {
             <p className="mt-10 text-muted-foreground">Loading...</p>
           ) : (
             <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {filtered.map((artwork, i) => (
-                <ArtworkCard key={artwork.id} artwork={artwork} index={i} />
-              ))}
+              {filtered.map((artwork, i) => {
+                const canDelete = isAdmin || (user && artwork.artistUserId === user.id);
+                return (
+                  <ArtworkCard 
+                    key={artwork.id} 
+                    artwork={artwork} 
+                    index={i} 
+                    onDelete={canDelete ? () => handleDeleteClick(artwork.id, artwork.title, artwork.image) : undefined}
+                  />
+                );
+              })}
             </div>
           )}
 
@@ -163,6 +206,23 @@ const Gallery = () => {
               {searchQuery ? `No artworks matching "${searchQuery}"` : "No artworks found in this category."}
             </p>
           )}
+
+          <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete "{deleteTarget?.title}"?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete this artwork and remove its image from storage. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Yes, delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </main>
       <Footer />
