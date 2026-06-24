@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
     const email = claims.claims.email as string;
     const userId = claims.claims.sub as string;
 
-    const { amount, currency = "GHS", callback_url, metadata } = await req.json();
+    const { amount, currency = "GHS", callback_url, metadata, channels } = await req.json();
     if (!amount || amount <= 0) {
       return new Response(JSON.stringify({ error: "Invalid amount" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -45,6 +45,7 @@ Deno.serve(async (req) => {
         currency,
         callback_url,
         metadata,
+        ...(channels ? { channels } : {}),
       }),
     });
     const data = await res.json();

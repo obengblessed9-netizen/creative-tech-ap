@@ -94,7 +94,7 @@ const Payment = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handlePaystack = async () => {
+  const handlePaystack = async (channels?: string[]) => {
     if (totalPrice <= 0) { toast.error("Your cart is empty."); return; }
     setPaystackLoading(true);
     try {
@@ -104,6 +104,7 @@ const Payment = () => {
           currency: "GHS",
           callback_url: `${window.location.origin}/payment`,
           metadata: { items: items.map((i) => ({ id: i.artwork?.id, title: i.artwork?.title })), mobile_number: "0551234567" },
+          ...(channels ? { channels } : {}),
         },
       });
       if (error || !data?.authorization_url) {
@@ -172,7 +173,15 @@ const Payment = () => {
       return;
     }
     if (method !== "pay_on_delivery") {
-      await handlePaystack();
+      let channels: string[] | undefined = undefined;
+      if (method === "mobile_money") {
+        channels = ["mobile_money"];
+      } else if (method === "card") {
+        channels = ["card"];
+      } else if (method === "bank_transfer") {
+        channels = ["bank_transfer", "bank"];
+      }
+      await handlePaystack(channels);
       return;
     }
     if (method === "pay_on_delivery" && !address) {
@@ -441,6 +450,12 @@ Thank you for choosing Creative Tech Gallery!`;
                     ? payswitchLoading ? "Redirecting to PaySwitch..." : "Pay with PaySwitch"
                     : method === "pay_on_delivery"
                     ? processing ? "Placing Order..." : "Place Order (Pay on Delivery)"
+                    : method === "mobile_money"
+                    ? paystackLoading ? "Redirecting to Mobile Money..." : "Pay with Mobile Money"
+                    : method === "card"
+                    ? paystackLoading ? "Redirecting to Card Payment..." : "Pay with Card"
+                    : method === "bank_transfer"
+                    ? paystackLoading ? "Redirecting to Bank Transfer..." : "Pay with Bank Transfer"
                     : paystackLoading ? "Redirecting to Paystack..." : "Pay with Paystack"}
                 </Button>
                 <p className="mt-2 text-xs text-muted-foreground text-center">
@@ -448,6 +463,12 @@ Thank you for choosing Creative Tech Gallery!`;
                     ? "Secure checkout powered by PaySwitch (cards, MoMo)."
                     : method === "pay_on_delivery"
                     ? "Confirm your order for cash on delivery."
+                    : method === "mobile_money"
+                    ? "Secure mobile money link via Paystack (MTN, Telecel, AirtelTigo)."
+                    : method === "card"
+                    ? "Secure card payment link via Paystack (Visa, Mastercard, Verve)."
+                    : method === "bank_transfer"
+                    ? "Secure bank transfer link via Paystack."
                     : "Secure checkout powered by Paystack (cards, MoMo, bank)."}
                 </p>
               </div>
